@@ -22,7 +22,7 @@ describe("Test zkp circuit and scripts", function () {
     client = await new ZKPClient().init(wasm, zkey);
     eddsa = await new EdDSA(privKey).init();
   });
-  it("Should able to prove and verify the zkp", async function () {
+  xit("Should able to prove and verify the zkp", async function () {
     const message = BigNumber.from(
       "0xABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00ABCDEF00"
     );
@@ -37,5 +37,12 @@ describe("Test zkp circuit and scripts", function () {
       R8y: eddsa.babyjub.F.toObject(signature.R8[1]),
     });
     expect(proof).not.to.eq(undefined);
+  });
+  it("Should able to parse note", async function () {
+    const note =
+      "tornado-eth-0.1-5-0xe49f60b5be7853c9d2af9db59eba98a7280f3b8908c339e6452bc0fb1b7e556a604fd9f824961956e4c8b881c5274ce36c11683070c749120e660cd941fd";
+    const parsedNote = await client.parseNote(note);
+    expect(parsedNote).not.to.eq(undefined);
+    console.log(parsedNote.deposit.commitmentHex)
   });
 });
