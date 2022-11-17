@@ -1,0 +1,7 @@
+{
+  "recommendations": [
+    "iden3.circom",
+    "juanblanco.solidity",
+    "esbenp.prettier-vscode"
+  ]
+}
