@@ -1,47 +1,11 @@
-# Zk app boilerplate
+# Proof of Innocence
 
-## Pre requisites
+Proof of Innocence is built on Tornado Cash which is a non-custodial Ethereum and ERC20 privacy solution based on zkSNARKs.
 
-* Install rust and [circom2](https://docs.circom.io/getting-started/installation/)
+On Tornado Cash, to make a deposit user generates a secret and sends its hash (called a commitment) along with the deposit amount to the Tornado smart contract. The contract accepts the deposit and adds the commitment to its list of deposits.
 
-## Getting started
+So there can be bad actors in these deposits, so if a bad actor (example associated with a hack etc) is known, its commitment is also known.
 
-1. Clone or fork this template repository.
-    ```shell
-    git clone https://github.com/wanseob/zkp-app-boilerplate
-    ```
-2. Install packages
-    ```shell
-    yarn
-    ```
-3. Build: this compiles the circuits and exports artifacts. Then compiles the contracts and generate typescript clients.
-    ```shell
-    yarn build
-    ```
-4. Run a demo app using a localhost private network.
-    ```shell
-    yarn demo
-    ```
+Later, when the user does a withdrawal, the user's commitment is not known with zkSnark technology. But this leds to a problem since innocent users are under suspicion.
 
-## Run tests
-1. Test contracts
-    ```shell
-    yarn workspace contracts test
-    ```
-
-2. Test your circuits
-    ```shell
-    yarn workspace circuits test
-    ```
-
-3. Test your app
-    ```shell
-    yarn workspace app test
-    ```
-
-
-## Example: EdDSA signature rollup
-
-Let's compress EdDSA signatures into one zk proof! Go to [tutorial!](./TUTORIAL.md)
-
-To check the complete codes, visit the `tutorial` branch.
+Proof of Innocence lets the users sends proofs that the withdrawal is not associated with some blacklisted commitments. With using the note given on deposit, all users can prove that the deposit is not from a list of commitments.

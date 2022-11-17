@@ -1,9 +1,9 @@
 {
-  "name": "zkp-app-boilerplate",
+  "name": "proof-of-innocence",
   "version": "0.1.0",
-  "description": "Boilerplate for zkp application",
-  "repository": "https://github.com/wanseob/zkp-app-boilerplate",
-  "author": "Wanseob Lim<email@wanseob.com>",
+  "description": "Proof of Innocence",
+  "repository": "https://github.com/chainwayxyz/proof-of-innocence",
+  "author": "Chainway<info@chainway.xyz>",
   "workspaces": [
     "app",
     "circuits",
