@@ -40,7 +40,7 @@ describe("Test zkp circuit and scripts", function () {
     });
     expect(proof).not.to.eq(undefined);
   });
-  it("Should able to parse note", async function () {
+  xit("Should able to parse note", async function () {
     const parsedNote = await client.parseNote(note);
     expect(parsedNote).not.to.eq(undefined);
     // parsedNoe.currency should be "eth"
@@ -56,7 +56,7 @@ describe("Test zkp circuit and scripts", function () {
     // parsedNoe.deposit.commitmentHex should be "0x604fd9f824961956e4c8b881c5274ce36c11683070c749120e660cd941fd"
     expect(parsedNote.deposit.commitmentHex).to.eq("0x263c919dec05271f99bbc03ad12de7fd90102664ab4439f9ba5e36f6bdf7235d");
   });
-  it("Should find the correct contract address", async function () {
+  xit("Should find the correct contract address", async function () {
     const { currency, amount, netId, deposit } = client.parseNote(note);
     const {tornadoAddress, tornadoInstance, deployedBlockNumber, subgraph} = client.initContract(netId, currency, amount);
     // tornadoAddress should be "0x454d870a72e29d5e5697f635128d18077bd04c60"
@@ -72,6 +72,8 @@ describe("Test zkp circuit and scripts", function () {
     const { currency, amount, netId, deposit } = client.parseNote(note);
     const {tornadoAddress, tornadoInstance, deployedBlockNumber, subgraph} = client.initContract(netId, currency, amount);
     const result = await client.queryLatestTimestamp(currency, amount, subgraph);
-    console.log(result);
+    console.log("Last deposit timestamp: ", result);
+    expect(result).not.to.eq(undefined);
+    await client.fetchGraphEvents(currency, amount, subgraph);
   });
 });

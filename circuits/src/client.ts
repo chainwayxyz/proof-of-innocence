@@ -24,6 +24,13 @@ export interface Deposit {
   nullifierHex: string;
 }
 
+export interface Event {
+  blockNumber: number,
+  transactionHash: string,
+  commitment: string,
+  leafIndex: number,
+  timestamp: string
+}
 
 
 export class ZKPClient {
@@ -31,6 +38,7 @@ export class ZKPClient {
   private _babyjub: any;
   private _zkey: any;
   private _pedersen:any;
+  private _events: Array<Event> = [];
 
   get initialized() {
     return (
@@ -184,6 +192,96 @@ export class ZKPClient {
     const queryResult = querySubgraph.data.data.deposits;
     const result = queryResult[0].timestamp;
     return Number(result);
+  }
+
+  async queryFromGraph(
+    currency: string,
+    amount: string,
+    subgraph: string,
+    timestamp: number
+  ) {
+    const variables = {
+      currency: currency.toString(),
+      amount: amount.toString(),
+      timestamp: timestamp
+    }
+    const query = {
+      query: `
+      query($currency: String, $amount: String, $timestamp: Int){
+        deposits(orderBy: timestamp, first: 1000, where: {currency: $currency, amount: $amount, timestamp_gt: $timestamp}) {
+          blockNumber
+          transactionHash
+          commitment
+          index
+          timestamp
+        }
+      }
+      `,
+      variables
+    }
+    const querySubgraph = await axios.post(subgraph, query, {});
+    const queryResult = querySubgraph.data.data?.deposits || [];
+
+    const mapResult = queryResult.map(({ blockNumber , transactionHash, commitment, index, timestamp }:{blockNumber:string,transactionHash:string,commitment:string,index:string,timestamp:string }) => ({
+      blockNumber: Number(blockNumber),
+      transactionHash: transactionHash,
+      commitment: commitment,
+      leafIndex: Number(index),
+      timestamp: timestamp
+    }));
+
+    return mapResult;
+  }
+
+  async fetchGraphEvents(
+    currency: string,
+    amount: string,
+    subgraph: string,
+  ){
+    const latestTimestamp = await this.queryLatestTimestamp(currency, amount, subgraph);
+    const firstTimestamp = 1605811082;
+    for (let i = firstTimestamp; i < latestTimestamp;){
+      // console.log("i: ", i);
+      const result = await this.queryFromGraph(currency, amount, subgraph, i);
+      // console.log("result: ", result);
+      
+      if (Object.keys(result).length === 0) {
+        i = latestTimestamp;
+      } else{
+        i = Number(result[result.length-1].timestamp);
+        const resultBlock = result[result.length - 1].blockNumber;
+        const resultTimestamp = result[result.length - 1].timestamp;
+        await this.saveResult(result);
+        i = parseInt(resultTimestamp);
+        console.log("Fetched", amount, currency.toUpperCase(), "deposit", "events to block:", Number(resultBlock), "timestamp:", Number(resultTimestamp));
+        // console.log("result.length: ", result.length);
+        // console.log(result[0]);
+        // console.log(result[result.length - 1]);
+      }
+    }
+    console.log("Length = ", this._events.length);
+    // return events;
+  }
+
+  async saveResult(result: Array<Event>){
+    this._events = this._events.concat(result);
+  }
+
+  async generateMerkleProof(
+    deposit:Deposit,
+    currency: string,
+    amount: string,
+  ) {
+    let leafIndex = -1;
+    const leaves = this._events.sort((a, b) => a.leafIndex - b.leafIndex).map((event) => {
+      if (event.commitment === deposit.commitmentHex) {
+        leafIndex = event.leafIndex;
+      }
+      // convert event.commitment to BigInt
+      return BigInt(event.commitment);
+    });
+    console.log("leafIndex: ", leafIndex);
+    console.log(leaves);
   }
 
   /**
