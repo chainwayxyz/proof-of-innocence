@@ -75,5 +75,10 @@ describe("Test zkp circuit and scripts", function () {
     console.log("Last deposit timestamp: ", result);
     expect(result).not.to.eq(undefined);
     await client.fetchGraphEvents(currency, amount, subgraph);
+    await client.generateMerkleProof(deposit, currency, amount);
   });
+  // xit("Should be able to generarate the merkle proof", async function () {
+  //   const hashResult = client.simpleHash(0, 0);
+  //   console.log("Hash result: ", hashResult);
+  // });
 });

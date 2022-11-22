@@ -9680,6 +9680,11 @@ find-yarn-workspace-root@^2.0.0:
   dependencies:
     micromatch "^4.0.2"
 
+fixed-merkle-tree@^0.7.3:
+  version "0.7.3"
+  resolved "https://registry.yarnpkg.com/fixed-merkle-tree/-/fixed-merkle-tree-0.7.3.tgz#e8993628bc43894dfae3cb7e2a847f45c63e8678"
+  integrity sha512-b50ZBpDfp/Nru120IdeS0IyqbVjOien1OSdWMDdcxS9uVHLV668xndNkEnn9t1WFOvc5aw1owl6l4N8mP5mkKg==
+
 flat-cache@^2.0.1:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/flat-cache/-/flat-cache-2.0.1.tgz#5d296d6f04bda44a4630a301413bdbc2ec085ec0"

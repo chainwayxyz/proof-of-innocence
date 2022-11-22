@@ -1,5 +1,5 @@
 import buildCalculator from "../zk/circuits/main_js/witness_calculator";
-import { buildBabyjub, buildPedersenHash } from "circomlibjs";
+import { buildBabyjub, buildPedersenHash, buildMimcSponge } from "circomlibjs";
 import { utils } from "ffjavascript";
 // import * as circomlibjs from "circomlibjs";
 import * as snarkjs from "snarkjs";
@@ -7,6 +7,7 @@ import * as snarkjs from "snarkjs";
 import { config } from "./config";
 
 import axios, { AxiosRequestConfig, AxiosPromise, AxiosResponse } from 'axios';
+import merkleTree, { Element } from "fixed-merkle-tree";
 
 export interface Proof {
   a: [bigint, bigint];
@@ -38,7 +39,10 @@ export class ZKPClient {
   private _babyjub: any;
   private _zkey: any;
   private _pedersen:any;
+  private _mimcsponge: any;
   private _events: Array<Event> = [];
+  private static MERKLE_TREE_HEIGHT = 20;
+
 
   get initialized() {
     return (
@@ -69,6 +73,7 @@ export class ZKPClient {
     ]);
     this._zkey.type = "mem";
     this._pedersen = await buildPedersenHash();
+    this._mimcsponge = await buildMimcSponge();
     return this;
   }
 
@@ -99,6 +104,26 @@ export class ZKPClient {
     const babyjubOutputBigInt = BigInt(babyjubOutput);
     console.log(babyjubOutputBigInt);
     return this._babyjub.unpackPoint(Buffer.from(this._pedersen.hash(data)))[0];
+  }
+
+  simpleHash(left:Element, right:Element): string {
+    console.log("GELDI");
+    console.log(left);
+    console.log(right);
+    return this._mimcsponge.F.toObject(this._mimcsponge.multiHash([utils.leInt2Buff(BigInt(left), 32), utils.leInt2Buff(BigInt(right), 32)])).toString();
+    console.log("left: ", left);
+    console.log("right: ", right);
+    console.log("left buffer = ", utils.leInt2Buff(BigInt(left)));
+    console.log("right buffer = ", utils.leInt2Buff(BigInt(right)));
+    console.log(this._mimcsponge.hash);
+    const hash = this._mimcsponge.multiHash([utils.leInt2Buff(BigInt(left), 32), utils.leInt2Buff(BigInt(right), 32)]);
+    console.log("hash: ", hash);
+    console.log("typeof hash: ", typeof hash);
+    
+    console.log(this._mimcsponge.F.toObject(hash));
+    console.log(hash[0]);
+    return "1";
+    // return this._mimcsponge.multiHash([utils.leInt2Buff(BigInt(left)), utils.leInt2Buff(BigInt(right))]);
   }
 
   toHex(num: bigint): string {
@@ -254,6 +279,7 @@ export class ZKPClient {
         await this.saveResult(result);
         i = parseInt(resultTimestamp);
         console.log("Fetched", amount, currency.toUpperCase(), "deposit", "events to block:", Number(resultBlock), "timestamp:", Number(resultTimestamp));
+        i = latestTimestamp;
         // console.log("result.length: ", result.length);
         // console.log(result[0]);
         // console.log(result[result.length - 1]);
@@ -267,6 +293,8 @@ export class ZKPClient {
     this._events = this._events.concat(result);
   }
 
+
+
   async generateMerkleProof(
     deposit:Deposit,
     currency: string,
@@ -278,10 +306,16 @@ export class ZKPClient {
         leafIndex = event.leafIndex;
       }
       // convert event.commitment to BigInt
-      return BigInt(event.commitment);
+      return Number(BigInt(event.commitment));
     });
     console.log("leafIndex: ", leafIndex);
     console.log(leaves);
+    const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, leaves, {hashFunction: this.simpleHash, zeroElement: 0});
+    const root = tree.root;
+    console.log("root: ", root);
+    const { pathElements, pathIndices } = tree.path(leafIndex);
+    console.log("pathElements: ", pathElements);
+    console.log("pathIndices: ", pathIndices);
   }
 
   /**

@@ -38,6 +38,7 @@
     "eslint-plugin-promise": "^5.2.0",
     "ethers": "^5.6.4",
     "ffjavascript": "^0.2.57",
+    "fixed-merkle-tree": "^0.7.3",
     "snarkjs": "^0.4.16"
   },
   "devDependencies": {
