@@ -14,10 +14,10 @@ export interface Deposit {
   nullifier: bigint;
   secret: bigint;
   preimage: Buffer;
-  commitment: Buffer;
+  commitment: bigint;
   commitmentHex: string;
-  // nullifierHash: bigint;
-  // nullifierHex: string;
+  nullifierHash: bigint;
+  nullifierHex: string;
 }
 
 
@@ -68,10 +68,29 @@ export class ZKPClient {
   // }
 
   /** Compute pedersen hash */
-  pedersenHash(data: Buffer): Buffer {
-    console.log("Unpacked point:");
-    console.log(this._babyjub.unpackPoint(this._pedersen.hash(data))[0]);
-    return this._babyjub.unpackPoint(this._pedersen.hash(data))[0];
+  pedersenHash(data: Buffer): bigint {
+    return this._babyjub.F.toObject(this._babyjub.unpackPoint(Buffer.from(this._pedersen.hash(data)))[0]);
+    console.log("Pedersen hash result:");
+    console.log(this._pedersen.hash(data));
+    console.log("Input to Baby JUBJUB is:")
+    console.log(Buffer.from(this._pedersen.hash(data)));
+    console.log("OUTPUT of baby jub jub is:");
+    console.log(this._babyjub.unpackPoint(Buffer.from(this._pedersen.hash(data)))[0]);
+    const babyjubOutput = this._babyjub.unpackPoint(Buffer.from(this._pedersen.hash(data)))[0];
+    console.log("BIGINT output:");
+    console.log(babyjubOutput);
+    console.log(Buffer.from(babyjubOutput));
+    console.log(utils.beBuff2int(Buffer.from(babyjubOutput)))
+    console.log("this._babyjub.F.array2buffer(babyjubOutput)")
+    console.log(this._babyjub.F.toObject(babyjubOutput));
+    // convert output of BigInt
+    const babyjubOutputBigInt = BigInt(babyjubOutput);
+    console.log(babyjubOutputBigInt);
+    return this._babyjub.unpackPoint(Buffer.from(this._pedersen.hash(data)))[0];
+  }
+
+  toHex(num: bigint): string {
+    return "0x" + num.toString(16);
   }
 
 
@@ -79,17 +98,12 @@ export class ZKPClient {
     nullifier: bigint,
     secret: bigint
   ): Deposit {
-    const deposit = { nullifier, secret };
-    
     const preimage = Buffer.concat([utils.leInt2Buff(nullifier, 31), utils.leInt2Buff(secret, 31)]);
     const commitment = this.pedersenHash(preimage);
-    console.log("Commitment:");
-    console.log(commitment);
-    
-    const commitmentHex = "0x" + utils.leBuff2int(commitment).toString(16);
-    console.log("CommitmentHex:")
-    console.log(commitmentHex);
-    return { ...deposit, preimage, commitment, commitmentHex };
+    const commitmentHex = this.toHex(commitment);
+    const nullifierHash = this.pedersenHash(utils.leInt2Buff(nullifier, 31));
+    const nullifierHex = this.toHex(nullifierHash);
+    return { nullifier, secret, preimage, commitment, commitmentHex, nullifierHash, nullifierHex };
   }
 
   parseNote(
@@ -117,6 +131,7 @@ export class ZKPClient {
     const nullifier = utils.leBuff2int(noteBytes.slice(0, 31));
     const secret = utils.leBuff2int(noteBytes.slice(31, 62));
     const deposit = this.createDeposit(nullifier, secret);
+    console.log(deposit);
 
     return {
       currency,
