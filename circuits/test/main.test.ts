@@ -12,7 +12,9 @@ describe("Test zkp circuit and scripts", function () {
     "0xABCDEF12ABCDEF12ABCDEF12ABCDEF12ABCDEF12ABCDEF12ABCDEF12ABCDEF12";
   let client: ZKPClient;
   let eddsa: EdDSA;
+  let note: string;
   beforeEach(async () => {
+    note = "tornado-eth-0.1-5-0xe49f60b5be7853c9d2af9db59eba98a7280f3b8908c339e6452bc0fb1b7e556a604fd9f824961956e4c8b881c5274ce36c11683070c749120e660cd941fd";
     const wasm = fs.readFileSync(
       path.join(__dirname, "../../circuits/zk/circuits/main_js/main.wasm")
     );
@@ -39,10 +41,37 @@ describe("Test zkp circuit and scripts", function () {
     expect(proof).not.to.eq(undefined);
   });
   it("Should able to parse note", async function () {
-    const note =
-      "tornado-eth-0.1-5-0xe49f60b5be7853c9d2af9db59eba98a7280f3b8908c339e6452bc0fb1b7e556a604fd9f824961956e4c8b881c5274ce36c11683070c749120e660cd941fd";
     const parsedNote = await client.parseNote(note);
     expect(parsedNote).not.to.eq(undefined);
-    console.log(parsedNote.deposit.commitmentHex)
+    // parsedNoe.currency should be "eth"
+    expect(parsedNote.currency).to.eq("eth");
+    // parsedNoe.amount should be 0.1
+    expect(parsedNote.amount).to.eq("0.1");
+    // parsedNoe.netId should be 5
+    expect(parsedNote.netId).to.eq(5);
+    // parsedNoe.deposit should be an object
+    expect(parsedNote.deposit).not.to.eq(undefined);
+    // parsedNoe.deposit.nullifierHex should be "0x2924f3fdbdd6c6559bbd4c1926934ba25261f76db5f4bc470f7594deb503f7f9"
+    expect(parsedNote.deposit.nullifierHex).to.eq("0x2924f3fdbdd6c6559bbd4c1926934ba25261f76db5f4bc470f7594deb503f7f9");
+    // parsedNoe.deposit.commitmentHex should be "0x604fd9f824961956e4c8b881c5274ce36c11683070c749120e660cd941fd"
+    expect(parsedNote.deposit.commitmentHex).to.eq("0x263c919dec05271f99bbc03ad12de7fd90102664ab4439f9ba5e36f6bdf7235d");
+  });
+  it("Should find the correct contract address", async function () {
+    const { currency, amount, netId, deposit } = client.parseNote(note);
+    const {tornadoAddress, tornadoInstance, deployedBlockNumber, subgraph} = client.initContract(netId, currency, amount);
+    // tornadoAddress should be "0x454d870a72e29d5e5697f635128d18077bd04c60"
+    expect(tornadoAddress).to.eq("0x454d870a72e29d5e5697f635128d18077bd04c60");
+    // tornadoInstance should be "0x6Bf694a291DF3FeC1f7e69701E3ab6c592435Ae7"
+    expect(tornadoInstance).to.eq("0x6Bf694a291DF3FeC1f7e69701E3ab6c592435Ae7");
+    // deployedBlockNumber should be 3782581
+    expect(deployedBlockNumber).to.eq(3782581);
+    // subgraph should be "https://api.thegraph.com/subgraphs/name/tornadocash/goerli-tornado-subgraph"
+    expect(subgraph).to.eq("https://api.thegraph.com/subgraphs/name/tornadocash/goerli-tornado-subgraph");
+  });
+  it("Should able to get the deposit data", async function () {
+    const { currency, amount, netId, deposit } = client.parseNote(note);
+    const {tornadoAddress, tornadoInstance, deployedBlockNumber, subgraph} = client.initContract(netId, currency, amount);
+    const result = await client.queryLatestTimestamp(currency, amount, subgraph);
+    console.log(result);
   });
 });

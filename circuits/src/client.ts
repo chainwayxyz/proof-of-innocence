@@ -3,6 +3,10 @@ import { buildBabyjub, buildPedersenHash } from "circomlibjs";
 import { utils } from "ffjavascript";
 // import * as circomlibjs from "circomlibjs";
 import * as snarkjs from "snarkjs";
+// import config
+import { config } from "./config";
+
+import axios, { AxiosRequestConfig, AxiosPromise, AxiosResponse } from 'axios';
 
 export interface Proof {
   a: [bigint, bigint];
@@ -110,7 +114,7 @@ export class ZKPClient {
     noteString:string
     ): {
       currency: string,
-      amount: number,
+      amount: string,
       netId: number,
       deposit: Deposit
     }{
@@ -126,12 +130,11 @@ export class ZKPClient {
     }
     const netId = parseInt(match.groups?.netId || "0");
     const currency = match.groups?.currency || "";
-    const amount = parseFloat(match.groups?.amount || "0");
+    const amount = match.groups?.amount || "0";
     const noteBytes = Buffer.from(note, 'hex');
     const nullifier = utils.leBuff2int(noteBytes.slice(0, 31));
     const secret = utils.leBuff2int(noteBytes.slice(31, 62));
     const deposit = this.createDeposit(nullifier, secret);
-    console.log(deposit);
 
     return {
       currency,
@@ -139,6 +142,48 @@ export class ZKPClient {
       netId,
       deposit
     };
+  }
+
+  initContract(
+    netId: number,
+    currency: string,
+    amount:string
+  ){
+    const net = config.deployments[`netId${netId}` as keyof typeof config.deployments];
+    const tornadoAddress = net.proxy;
+    const subgraph = net.subgraph;
+    const instance = net[currency as keyof typeof net];
+    const instanceAdresses = instance["instanceAddress" as keyof typeof instance];
+    const tornadoInstance = instanceAdresses[amount as keyof typeof instanceAdresses];
+    const deployedBlockNumbers = instance["deployedBlockNumber" as keyof typeof instance];
+    const deployedBlockNumber = deployedBlockNumbers[amount as keyof typeof deployedBlockNumbers];
+
+    return {tornadoAddress, tornadoInstance, deployedBlockNumber, subgraph};
+  }
+
+  async queryLatestTimestamp(
+    currency: string,
+    amount: string,
+    subgraph: string
+  ){
+    const variables = {
+      currency: currency.toString(),
+      amount: amount.toString()
+    }
+    const query = {
+      query: `
+      query($currency: String, $amount: String){
+        deposits(first: 1, orderBy: timestamp, orderDirection: desc, where: {currency: $currency, amount: $amount}) {
+          timestamp
+        }
+      }
+      `,
+      variables
+    }
+    const querySubgraph = await axios.post(subgraph, query);
+    const queryResult = querySubgraph.data.data.deposits;
+    const result = queryResult[0].timestamp;
+    return Number(result);
   }
 
   /**
