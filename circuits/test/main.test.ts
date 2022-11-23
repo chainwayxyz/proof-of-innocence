@@ -77,8 +77,9 @@ describe("Test zkp circuit and scripts", function () {
     await client.fetchGraphEvents(currency, amount, subgraph);
     await client.generateMerkleProof(deposit, currency, amount);
   });
-  // xit("Should be able to generarate the merkle proof", async function () {
-  //   const hashResult = client.simpleHash(0, 0);
-  //   console.log("Hash result: ", hashResult);
-  // });
+  xit("Should be able to generarate the merkle proof", async function () {
+    const x = "21663839004416932945382355908790599225266501822907911457504978515578255421292";
+    const hashResult = client.simpleHash(x, x);
+    console.log("Hash result: ", hashResult);
+  });
 });

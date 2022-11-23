@@ -9,6 +9,9 @@ import { config } from "./config";
 import axios, { AxiosRequestConfig, AxiosPromise, AxiosResponse } from 'axios';
 import merkleTree, { Element } from "fixed-merkle-tree";
 
+// import fs
+import fs from "fs";
+
 export interface Proof {
   a: [bigint, bigint];
   b: [[bigint, bigint], [bigint, bigint]];
@@ -87,43 +90,26 @@ export class ZKPClient {
   /** Compute pedersen hash */
   pedersenHash(data: Buffer): bigint {
     return this._babyjub.F.toObject(this._babyjub.unpackPoint(Buffer.from(this._pedersen.hash(data)))[0]);
-    console.log("Pedersen hash result:");
-    console.log(this._pedersen.hash(data));
-    console.log("Input to Baby JUBJUB is:")
-    console.log(Buffer.from(this._pedersen.hash(data)));
-    console.log("OUTPUT of baby jub jub is:");
-    console.log(this._babyjub.unpackPoint(Buffer.from(this._pedersen.hash(data)))[0]);
-    const babyjubOutput = this._babyjub.unpackPoint(Buffer.from(this._pedersen.hash(data)))[0];
-    console.log("BIGINT output:");
-    console.log(babyjubOutput);
-    console.log(Buffer.from(babyjubOutput));
-    console.log(utils.beBuff2int(Buffer.from(babyjubOutput)))
-    console.log("this._babyjub.F.array2buffer(babyjubOutput)")
-    console.log(this._babyjub.F.toObject(babyjubOutput));
-    // convert output of BigInt
-    const babyjubOutputBigInt = BigInt(babyjubOutput);
-    console.log(babyjubOutputBigInt);
-    return this._babyjub.unpackPoint(Buffer.from(this._pedersen.hash(data)))[0];
   }
 
   simpleHash(left:Element, right:Element): string {
-    console.log("GELDI");
-    console.log(left);
-    console.log(right);
-    return this._mimcsponge.F.toObject(this._mimcsponge.multiHash([utils.leInt2Buff(BigInt(left), 32), utils.leInt2Buff(BigInt(right), 32)])).toString();
-    console.log("left: ", left);
-    console.log("right: ", right);
-    console.log("left buffer = ", utils.leInt2Buff(BigInt(left)));
-    console.log("right buffer = ", utils.leInt2Buff(BigInt(right)));
-    console.log(this._mimcsponge.hash);
-    const hash = this._mimcsponge.multiHash([utils.leInt2Buff(BigInt(left), 32), utils.leInt2Buff(BigInt(right), 32)]);
-    console.log("hash: ", hash);
-    console.log("typeof hash: ", typeof hash);
-    
-    console.log(this._mimcsponge.F.toObject(hash));
-    console.log(hash[0]);
-    return "1";
-    // return this._mimcsponge.multiHash([utils.leInt2Buff(BigInt(left)), utils.leInt2Buff(BigInt(right))]);
+    return this._mimcsponge.F.toString(this._mimcsponge.multiHash([this._mimcsponge.F.e(BigInt(left)), this._mimcsponge.F.e(BigInt(right))])).toString();
+    console.log("RIGHT: ", utils.leInt2Buff(BigInt(right), 32));
+    console.log("LEFT: ", utils.leInt2Buff(BigInt(left), 32));
+    const ilk = new Uint8Array([74,109,29,103,31,171,36,3,91,108,40,193,155,44,239,31,137,34,171,196,243,89,83,15,208,170,137,27,157,97,192,46]);
+    const iki = new Uint8Array([108,175,153,72,237,133,150,36,226,65,231,118,15,52,27,130,180,93,161,235,182,53,58,52,243,171,172,211,96,76,229,47]);
+    const sXL = new Uint8Array([223,189,131,14,198,26,112,34,10,155,250,195,212,224,7,198,49,29,139,90,243,105,105,147,6,159,14,41,175,99,63,47]);
+    const xXR = new Uint8Array([92,225,155,4,25,47,200,50,118,216,253,153,237,6,211,122,184,124,186,174,236,22,98,36,202,194,191,192,103,88,111,1]);
+    const firstSeed = new Uint8Array([132, 140,  71, 228, 223, 200,  90, 150, 224, 150, 230, 226, 144, 215, 189, 231, 74, 228,  78,  31, 255, 107, 131, 229, 124,  21,   7, 131, 188,  39,  62,   5]);
+    console.log("FIRST SEED: ", utils.leBuff2int(firstSeed));
+    console.log("ILK xXL: ", utils.leBuff2int(sXL));
+    console.log("IKI xXR: ", utils.leBuff2int(xXR));
+    console.log(utils.leBuff2int(iki));
+    console.log(utils.leBuff2int(ilk));
+    const hash = this._mimcsponge.F.toString(this._mimcsponge.multiHash([this._mimcsponge.F.e(BigInt(left)), this._mimcsponge.F.e(BigInt(right))])).toString();
+    fs.appendFileSync('/Users/ekrembal/Documents/chainway/proof-of-innocence/circuits/src/hashes.txt', left.toString() + " " + right.toString() + " " + hash + '\n');
+    // console.log(left, right, hash);
+    return hash;
   }
 
   toHex(num: bigint): string {
@@ -279,7 +265,7 @@ export class ZKPClient {
         await this.saveResult(result);
         i = parseInt(resultTimestamp);
         console.log("Fetched", amount, currency.toUpperCase(), "deposit", "events to block:", Number(resultBlock), "timestamp:", Number(resultTimestamp));
-        i = latestTimestamp;
+        // i = latestTimestamp;
         // console.log("result.length: ", result.length);
         // console.log(result[0]);
         // console.log(result[result.length - 1]);
@@ -306,11 +292,11 @@ export class ZKPClient {
         leafIndex = event.leafIndex;
       }
       // convert event.commitment to BigInt
-      return Number(BigInt(event.commitment));
+      return BigInt(event.commitment).toString(10);
     });
     console.log("leafIndex: ", leafIndex);
     console.log(leaves);
-    const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, leaves, {hashFunction: this.simpleHash, zeroElement: 0});
+    const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, leaves, {hashFunction:(l,r)=>this.simpleHash(l,r), zeroElement:'21663839004416932945382355908790599225266501822907911457504978515578255421292'});
     const root = tree.root;
     console.log("root: ", root);
     const { pathElements, pathIndices } = tree.path(leafIndex);
