@@ -107,6 +107,11 @@ template DummyCommitmentHasher() {
 template Withdraw(levels) {
     signal input root;
     signal input nullifierHash;
+    signal input recipient; // not taking part in any computations
+    signal input relayer;  // not taking part in any computations
+    signal input fee;      // not taking part in any computations
+    signal input refund;   // not taking part in any computations
+
     // private inputs
     signal input nullifier;
     signal input secret;
@@ -125,7 +130,16 @@ template Withdraw(levels) {
         tree.pathElements[i] <== pathElements[i];
         tree.pathIndices[i] <== pathIndices[i];
     }
+    signal recipientSquare;
+    signal feeSquare;
+    signal relayerSquare;
+    signal refundSquare;
+    recipientSquare <== recipient * recipient;
+    feeSquare <== fee * fee;
+    relayerSquare <== relayer * relayer;
+    refundSquare <== refund * refund;
+
 }
-component main {public [root, nullifierHash]} = Withdraw(20);
+component main {public [root, nullifierHash, recipient, fee, relayer, refund]} = Withdraw(20);
 // component main {public [commitment, nullifierHash]} = DummyCommitmentHasher();
 // component main {public [left, right]} = HashLeftRight();

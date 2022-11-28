@@ -77,31 +77,18 @@ describe("Test zkp circuit and scripts", function () {
     expect(result).not.to.eq(undefined);
     // await client.quertFromRPC(tornadoInstance, deployedBlockNumber);
     await client.fetchGraphEvents(currency, amount, subgraph);
-    // console.log("Last deposit block: ", last_block);
-    // const all_events = await client.quertFromRPC(tornadoInstance, deployedBlockNumber, last_block);
     const events = client.getEvents();
-    // write events to file
-    fs.writeFileSync("/Users/ekrembal/Documents/chainway/proof-of-innocence/circuits/test/events.json", JSON.stringify(events, null, 2));
-    console.log("Events: ", events);
-    // console.log("All events: ", all_events);
-    return;
+
     expect(events).not.to.eq(undefined);
     expect(events.length).to.be.greaterThan(100);
     const {root, pathElements, pathIndices} = await client.generateMerkleProof(deposit, currency, amount);
     expect(root).not.to.eq(undefined);
     expect(pathElements).not.to.eq(undefined);
     expect(pathIndices).not.to.eq(undefined);
-    console.log(root, pathElements, pathIndices);
-    // convert pathElements from Element to string
-    const pathElementsStr = pathElements.map((element) => {
-      return element.toString();
-    });
-    const proof = await client.generateProof(root.toString(), pathElementsStr, pathIndices, deposit);
-  });
-  xit("Should be able to generarate the merkle proof", async function () {
-    const { currency, amount, netId, deposit } = client.parseNote(note);
-    console.log(deposit);
-    const proof = await client.dummpyProof2(deposit);
-    console.log("Proof: ", proof);
+
+    const {proof, args} = await client.generateProof(root as string, pathElements as string[], pathIndices, deposit);
+    console.log(proof);
+    console.log(args);
+
   });
 });

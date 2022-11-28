@@ -112,8 +112,13 @@ export class ZKPClient {
     return hash;
   }
 
-  toHex(num: bigint): string {
-    return "0x" + num.toString(16);
+  toHex(num: bigint, length:number = 32): string {
+    return "0x" + num.toString(16).padStart(length * 2, '0');;
+  }
+  toHex32(num: bigint): string {
+    let str = num.toString(16);
+    while (str.length < 64) str = "0" + str;
+    return str;
   }
 
 
@@ -350,12 +355,12 @@ export class ZKPClient {
     // console.log("pathIndices: ", pathIndices);
     return {root, pathElements, pathIndices};
   }
-
+  // returns {string, string[]}
   async generateProof(
     root: string,
     pathElements: Array<string>,
     pathIndices: Array<number>,
-    deposit: Deposit): Promise<Proof> {
+    deposit: Deposit): Promise<{proof: string, args: string[]}> {
       const input = {
         // Public snark inputs
         root: root,
@@ -364,7 +369,10 @@ export class ZKPClient {
         // relayer: 0,
         // fee: 0,
         // refund: 0,
-
+        recipient: BigInt("1164257306050234523562129364841785784763126090021"),
+        relayer: BigInt("0"),
+        fee:BigInt("0"),
+        refund: BigInt("0"),
         // Private snark inputs
         nullifier: deposit.nullifier,
         secret: deposit.secret,
@@ -376,35 +384,48 @@ export class ZKPClient {
       console.log('Generating SNARK proof');
       console.time('Proof time');
       const wtns = await this.calculator.calculateWTNSBin(input, 0);
-      const { proof } = await snarkjs.groth16.prove(this._zkey, wtns);
-      return proof;
-  }
-  async dummpyProof(left: string, right: string, hash:string): Promise<Proof> {
-    const input = {
-      left: left,
-      right: right,
-      hash: hash,
-    }
-    console.log('Generating SNARK proof');
-    console.time('Proof time');
-    const wtns = await this.calculator.calculateWTNSBin(input, 0);
-    const { proof } = await snarkjs.groth16.prove(this._zkey, wtns);
-    return proof;
+      const { proof:proofOutput } = await snarkjs.groth16.prove(this._zkey, wtns);
+      console.log('Proof generated');
+      console.timeEnd('Proof time');
+      console.log(proofOutput);
+      const proofData = {
+        a: [proofOutput.pi_a[0], proofOutput.pi_a[1]] as [bigint, bigint],
+        b: [proofOutput.pi_b[0].reverse(), proofOutput.pi_b[1].reverse()] as [
+          [bigint, bigint],
+          [bigint, bigint]
+        ],
+        c: [proofOutput.pi_c[0], proofOutput.pi_c[1]] as [bigint, bigint],
+      } as Proof;
+      const { proof } = this.toSolidityInput(proofData);
+      console.timeEnd('Proof time');
+      const args = [
+        this.toHex(BigInt(input.root)),
+        this.toHex(input.nullifierHash),
+        this.toHex(input.recipient, 20),
+        this.toHex(input.relayer, 20),
+        this.toHex(input.fee),
+        this.toHex(input.refund)
+      ];
+      return { proof, args};
   }
 
-  async dummpyProof2(deposit: Deposit): Promise<Proof> {
-    const input = {
-      nullifier: deposit.nullifier,
-      secret: deposit.secret,
-      commitment: deposit.commitment,
-      nullifierHash: deposit.nullifierHash,
-    }
-    console.log('Generating SNARK proof');
-    console.time('Proof time');
-    const wtns = await this.calculator.calculateWTNSBin(input, 0);
-    const { proof } = await snarkjs.groth16.prove(this._zkey, wtns);
-    return proof;
+  toSolidityInput(proof: Proof) {
+    const flatProof: bigint[] = utils.unstringifyBigInts([
+      proof.a[0],
+      proof.a[1],
+      proof.b[0][1],
+      proof.b[0][0],
+      proof.b[1][1],
+      proof.b[1][0],
+      proof.c[0],
+      proof.c[1],
+    ]);
+    const result = {
+      proof: "0x" + flatProof.map(x => this.toHex32(x)).join("")
+    };
+    return result;
   }
+
   /**
    * @dev customize this functions for your own circuit!
    */
