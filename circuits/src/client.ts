@@ -4,13 +4,11 @@ import { utils } from "ffjavascript";
 // import * as circomlibjs from "circomlibjs";
 import * as snarkjs from "snarkjs";
 // import config
-import { config } from "./config";
+import { config, tornadoInstanceABI } from "./config";
 
 import axios, { AxiosRequestConfig, AxiosPromise, AxiosResponse } from 'axios';
 import merkleTree, { Element } from "fixed-merkle-tree";
-
-// import fs
-import fs from "fs";
+import { ethers } from "ethers";
 
 export interface Proof {
   a: [bigint, bigint];
@@ -44,6 +42,7 @@ export class ZKPClient {
   private _pedersen:any;
   private _mimcsponge: any;
   private _events: Array<Event> = [];
+  private _rpc: string = "";
   private static MERKLE_TREE_HEIGHT = 20;
 
 
@@ -77,6 +76,7 @@ export class ZKPClient {
     this._zkey.type = "mem";
     this._pedersen = await buildPedersenHash();
     this._mimcsponge = await buildMimcSponge();
+    this._rpc = "https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161";
     return this;
   }
 
@@ -107,7 +107,7 @@ export class ZKPClient {
     console.log(utils.leBuff2int(iki));
     console.log(utils.leBuff2int(ilk));
     const hash = this._mimcsponge.F.toString(this._mimcsponge.multiHash([this._mimcsponge.F.e(BigInt(left)), this._mimcsponge.F.e(BigInt(right))])).toString();
-    fs.appendFileSync('/Users/ekrembal/Documents/chainway/proof-of-innocence/circuits/src/hashes.txt', left.toString() + " " + right.toString() + " " + hash + '\n');
+    // fs.appendFileSync('/Users/ekrembal/Documents/chainway/proof-of-innocence/circuits/src/hashes.txt', left.toString() + " " + right.toString() + " " + hash + '\n');
     // console.log(left, right, hash);
     return hash;
   }
@@ -209,17 +209,17 @@ export class ZKPClient {
     currency: string,
     amount: string,
     subgraph: string,
-    timestamp: number
+    index: string
   ) {
     const variables = {
       currency: currency.toString(),
       amount: amount.toString(),
-      timestamp: timestamp
+      index: index
     }
     const query = {
       query: `
-      query($currency: String, $amount: String, $timestamp: Int){
-        deposits(orderBy: timestamp, first: 1000, where: {currency: $currency, amount: $amount, timestamp_gt: $timestamp}) {
+      query($currency: String, $amount: String, $index: String){
+        deposits(orderBy: index, first: 1000, where: {currency: $currency, amount: $amount, index_gte: $index}) {
           blockNumber
           transactionHash
           commitment
@@ -233,15 +233,55 @@ export class ZKPClient {
     const querySubgraph = await axios.post(subgraph, query, {});
     const queryResult = querySubgraph.data.data?.deposits || [];
 
-    const mapResult = queryResult.map(({ blockNumber , transactionHash, commitment, index, timestamp }:{blockNumber:string,transactionHash:string,commitment:string,index:string,timestamp:string }) => ({
+    let mapResult = queryResult.map(({ blockNumber , transactionHash, commitment, index, timestamp }:{blockNumber:string,transactionHash:string,commitment:string,index:string,timestamp:string }) => ({
       blockNumber: Number(blockNumber),
       transactionHash: transactionHash,
       commitment: commitment,
       leafIndex: Number(index),
       timestamp: timestamp
     }));
+    // Sort mapResult by leafIndex
+    // mapResult.sort((a:any, b:any) => a.leafIndex - b.leafIndex);
 
     return mapResult;
+  }
+
+  async quertFromRPC(
+    tornadoInstance: string,
+    deployedBlockNumber: number,
+    startBlock: number,
+  ) {
+    const provider = new ethers.providers.JsonRpcProvider(this._rpc);
+    const tornadoContract = new ethers.Contract(tornadoInstance, tornadoInstanceABI, provider);
+    // const tornadoInstanceContract = new ethers.Contract(tornadoInstance, tornadoInstanceABI, provider);
+    const filter = tornadoContract.filters.Deposit();
+    const targetBlock = await provider.getBlockNumber();
+    // const startBlock = deployedBlockNumber;
+    const chunks = 10000;
+    let allEvents:Event[] = [];
+
+    for(let i = startBlock; i < targetBlock; i += chunks){
+      let j;
+      if (i + chunks - 1 > targetBlock) {
+        j = targetBlock;
+      } else {
+        j = i + chunks - 1;
+      }
+      let events = await tornadoContract.queryFilter(filter, i, j);
+      // console.log(events);
+      const mappedEvents:Event[] = events.map((event) => {
+        return {
+          blockNumber: event.blockNumber,
+          transactionHash: event.transactionHash,
+          commitment: event.args?.commitment,
+          leafIndex: event.args?.leafIndex,
+          timestamp: event.args?.timestamp
+        };
+      });
+      console.log(mappedEvents);
+      allEvents = allEvents.concat(mappedEvents);
+    }
+    return allEvents;
   }
 
   async fetchGraphEvents(
@@ -250,20 +290,21 @@ export class ZKPClient {
     subgraph: string,
   ){
     const latestTimestamp = await this.queryLatestTimestamp(currency, amount, subgraph);
-    const firstTimestamp = 1605811082;
-    for (let i = firstTimestamp; i < latestTimestamp;){
+    // let lastBlock = 0;
+    for (let index='0';;){
       // console.log("i: ", i);
-      const result = await this.queryFromGraph(currency, amount, subgraph, i);
+      const result = await this.queryFromGraph(currency, amount, subgraph, index);
       // console.log("result: ", result);
       
       if (Object.keys(result).length === 0) {
-        i = latestTimestamp;
+        break;
       } else{
-        i = Number(result[result.length-1].timestamp);
+        index = String(result[result.length-1].leafIndex + 1);
         const resultBlock = result[result.length - 1].blockNumber;
         const resultTimestamp = result[result.length - 1].timestamp;
         await this.saveResult(result);
-        i = parseInt(resultTimestamp);
+        // i = parseInt(resultTimestamp);
+        // lastBlock = resultBlock;
         console.log("Fetched", amount, currency.toUpperCase(), "deposit", "events to block:", Number(resultBlock), "timestamp:", Number(resultTimestamp));
         // i = latestTimestamp;
         // console.log("result.length: ", result.length);
@@ -272,11 +313,15 @@ export class ZKPClient {
       }
     }
     console.log("Length = ", this._events.length);
-    // return events;
+    // return lastBlock;
   }
 
   async saveResult(result: Array<Event>){
     this._events = this._events.concat(result);
+  }
+
+  getEvents(){
+    return this._events;
   }
 
 
@@ -298,12 +343,68 @@ export class ZKPClient {
     console.log(leaves);
     const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, leaves, {hashFunction:(l,r)=>this.simpleHash(l,r), zeroElement:'21663839004416932945382355908790599225266501822907911457504978515578255421292'});
     const root = tree.root;
-    console.log("root: ", root);
-    const { pathElements, pathIndices } = tree.path(leafIndex);
-    console.log("pathElements: ", pathElements);
-    console.log("pathIndices: ", pathIndices);
+    // console.log("root: ", root);
+    const { pathElements, pathIndices, pathRoot } = tree.path(leafIndex);
+    // console.log("pathElements: ", pathElements);
+    console.log("Path root: ", pathRoot);
+    // console.log("pathIndices: ", pathIndices);
+    return {root, pathElements, pathIndices};
   }
 
+  async generateProof(
+    root: string,
+    pathElements: Array<string>,
+    pathIndices: Array<number>,
+    deposit: Deposit): Promise<Proof> {
+      const input = {
+        // Public snark inputs
+        root: root,
+        nullifierHash: deposit.nullifierHash,
+        // recipient: 0,
+        // relayer: 0,
+        // fee: 0,
+        // refund: 0,
+
+        // Private snark inputs
+        nullifier: deposit.nullifier,
+        secret: deposit.secret,
+        pathElements: pathElements,
+        pathIndices: pathIndices
+      }
+      console.log("input\n");
+      console.log(input);
+      console.log('Generating SNARK proof');
+      console.time('Proof time');
+      const wtns = await this.calculator.calculateWTNSBin(input, 0);
+      const { proof } = await snarkjs.groth16.prove(this._zkey, wtns);
+      return proof;
+  }
+  async dummpyProof(left: string, right: string, hash:string): Promise<Proof> {
+    const input = {
+      left: left,
+      right: right,
+      hash: hash,
+    }
+    console.log('Generating SNARK proof');
+    console.time('Proof time');
+    const wtns = await this.calculator.calculateWTNSBin(input, 0);
+    const { proof } = await snarkjs.groth16.prove(this._zkey, wtns);
+    return proof;
+  }
+
+  async dummpyProof2(deposit: Deposit): Promise<Proof> {
+    const input = {
+      nullifier: deposit.nullifier,
+      secret: deposit.secret,
+      commitment: deposit.commitment,
+      nullifierHash: deposit.nullifierHash,
+    }
+    console.log('Generating SNARK proof');
+    console.time('Proof time');
+    const wtns = await this.calculator.calculateWTNSBin(input, 0);
+    const { proof } = await snarkjs.groth16.prove(this._zkey, wtns);
+    return proof;
+  }
   /**
    * @dev customize this functions for your own circuit!
    */

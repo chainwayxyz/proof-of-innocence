@@ -13,7 +13,7 @@
     "browser"
   ],
   "scripts": {
-    "test": "ts-mocha -p tsconfig.json test/**/*.ts --timeout 30000 --exit",
+    "test": "ts-mocha -p tsconfig.json test/**/*.ts --timeout 3000000 --exit",
     "pretest": "tsc -p tsconfig.json",
     "precompile": "scripts/prerequisites.sh && mkdir -p zk/circuits zk/zkeys zk/verifiers",
     "postbuild": "cp zk/zkeys/main.zkey ../app/public && cp zk/circuits/main_js/main.wasm ../app/public",
@@ -36,7 +36,7 @@
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-prettier": "^3.4.1",
     "eslint-plugin-promise": "^5.2.0",
-    "ethers": "^5.6.4",
+    "ethers": "^5.7.2",
     "ffjavascript": "^0.2.57",
     "fixed-merkle-tree": "^0.7.3",
     "snarkjs": "^0.4.16"

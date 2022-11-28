@@ -15,6 +15,7 @@ describe("Test zkp circuit and scripts", function () {
   let note: string;
   beforeEach(async () => {
     note = "tornado-eth-0.1-5-0xe49f60b5be7853c9d2af9db59eba98a7280f3b8908c339e6452bc0fb1b7e556a604fd9f824961956e4c8b881c5274ce36c11683070c749120e660cd941fd";
+    // note = "tornado-eth-0.1-5-0x54e1d5412ccd751a5e0667e836e770dfe556207a8cc1fdc432540a386f1d8f80ee26ccf790d041ef4439c62a5880ecf1b0585e00f67795646d3099d7ad02";
     const wasm = fs.readFileSync(
       path.join(__dirname, "../../circuits/zk/circuits/main_js/main.wasm")
     );
@@ -74,12 +75,33 @@ describe("Test zkp circuit and scripts", function () {
     const result = await client.queryLatestTimestamp(currency, amount, subgraph);
     console.log("Last deposit timestamp: ", result);
     expect(result).not.to.eq(undefined);
+    // await client.quertFromRPC(tornadoInstance, deployedBlockNumber);
     await client.fetchGraphEvents(currency, amount, subgraph);
-    await client.generateMerkleProof(deposit, currency, amount);
+    // console.log("Last deposit block: ", last_block);
+    // const all_events = await client.quertFromRPC(tornadoInstance, deployedBlockNumber, last_block);
+    const events = client.getEvents();
+    // write events to file
+    fs.writeFileSync("/Users/ekrembal/Documents/chainway/proof-of-innocence/circuits/test/events.json", JSON.stringify(events, null, 2));
+    console.log("Events: ", events);
+    // console.log("All events: ", all_events);
+    return;
+    expect(events).not.to.eq(undefined);
+    expect(events.length).to.be.greaterThan(100);
+    const {root, pathElements, pathIndices} = await client.generateMerkleProof(deposit, currency, amount);
+    expect(root).not.to.eq(undefined);
+    expect(pathElements).not.to.eq(undefined);
+    expect(pathIndices).not.to.eq(undefined);
+    console.log(root, pathElements, pathIndices);
+    // convert pathElements from Element to string
+    const pathElementsStr = pathElements.map((element) => {
+      return element.toString();
+    });
+    const proof = await client.generateProof(root.toString(), pathElementsStr, pathIndices, deposit);
   });
   xit("Should be able to generarate the merkle proof", async function () {
-    const x = "21663839004416932945382355908790599225266501822907911457504978515578255421292";
-    const hashResult = client.simpleHash(x, x);
-    console.log("Hash result: ", hashResult);
+    const { currency, amount, netId, deposit } = client.parseNote(note);
+    console.log(deposit);
+    const proof = await client.dummpyProof2(deposit);
+    console.log("Proof: ", proof);
   });
 });
