@@ -72,11 +72,11 @@ describe("Test zkp circuit and scripts", function () {
   it("Should able to get the deposit data", async function () {
     const { currency, amount, netId, deposit } = client.parseNote(note);
     const {tornadoAddress, tornadoInstance, deployedBlockNumber, subgraph} = client.initContract(netId, currency, amount);
-    const result = await client.queryLatestTimestamp(currency, amount, subgraph);
+    const result = await client.queryLatestIndex(currency, amount, subgraph);
     console.log("Last deposit timestamp: ", result);
     expect(result).not.to.eq(undefined);
     // await client.quertFromRPC(tornadoInstance, deployedBlockNumber);
-    await client.fetchGraphEvents(currency, amount, subgraph);
+    await client.fetchGraphEvents(currency, amount, subgraph, (_) => {});
     const events = client.getEvents();
 
     expect(events).not.to.eq(undefined);

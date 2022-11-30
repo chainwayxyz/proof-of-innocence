@@ -13,6 +13,7 @@ import useEdDSA from "./hooks/useEdDSA";
 import Deploy from "./components/Deploy";
 
 import TornadoNote from "./components/TornadoNote";
+import GenProof from "./components/GenProof";
 
 // const address = process.env["REACT_APP_CONTRACT_ADDRESS"] as string;
 // if (typeof address !== "string") throw Error("Configure contract address");
@@ -25,7 +26,8 @@ function App() {
   const [eddsaSignature, setEdDSASignature] = useState<EdDSASignature>();
   const [proof, setProof] = useState<Proof>();
   const [deployed, setDeployed] = useState<string>();
-  const [note, setNote] = useState<string>();
+  const [merkleProof, setMerkleProof] = useState<string>("");
+  const [proofStr, setProofStr] = useState<string>("");
   return (
     <div className="App">
       <h1>ZKP App Boilerplate</h1>
@@ -33,7 +35,7 @@ function App() {
       <Connect />
       <h2>Step 2. Get past Tornado Cash deposits</h2>
       <p>You can use my goerli deposit note here:<br/> tornado-eth-0.1-5-0xe49f60b5be7853c9d2af9db59eba98a7280f3b8908c339e6452bc0fb1b7e556a604fd9f824961956e4c8b881c5274ce36c11683070c749120e660cd941fd</p>
-      <TornadoNote onResult={setNote}/>
+      <TornadoNote onResult={setMerkleProof}/>
       {/* <h2>Step 2. Deploy smart contracts</h2>
       <Deploy onResult={setDeployed} />
       <h2>Step 3. Check the data fetch from the smart contract</h2>

@@ -44,6 +44,7 @@ export class ZKPClient {
   private _events: Array<Event> = [];
   private _rpc: string = "";
   private static MERKLE_TREE_HEIGHT = 20;
+  process: number = 0;
 
 
   get initialized() {
@@ -78,6 +79,19 @@ export class ZKPClient {
     this._mimcsponge = await buildMimcSponge();
     this._rpc = "https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161";
     return this;
+  }
+
+  async calculateProofFromNote(noteString: string, setProgress: Function): Promise<string> {
+    const { currency, amount, netId, deposit } = this.parseNote(noteString);
+    const {tornadoAddress, tornadoInstance, deployedBlockNumber, subgraph} = this.initContract(netId, currency, amount);
+    // await client.quertFromRPC(tornadoInstance, deployedBlockNumber);
+    await this.fetchGraphEvents(currency, amount, subgraph, setProgress);
+    const events = this.getEvents();
+
+    const {root, pathElements, pathIndices} = await this.generateMerkleProof(deposit, currency, amount);
+
+    const inputJson = this.generateInputFirstPart(root as string, pathElements as string[], pathIndices, deposit);
+    return inputJson;
   }
 
   // async init() {
@@ -126,7 +140,12 @@ export class ZKPClient {
     nullifier: bigint,
     secret: bigint
   ): Deposit {
-    const preimage = Buffer.concat([utils.leInt2Buff(nullifier, 31), utils.leInt2Buff(secret, 31)]);
+    console.log("NULLIFIER: ", nullifier);
+    console.log("SECRET: ", secret);
+    console.log([Buffer.from(utils.leInt2Buff(nullifier, 31)), Buffer.from(utils.leInt2Buff(secret, 31))]);
+
+    // const preimage = utils.leInt2Buff(nullifier, 31).concat(utils.leInt2Buff(secret, 31));
+    const preimage = Buffer.concat([Buffer.from(utils.leInt2Buff(nullifier, 31)), Buffer.from(utils.leInt2Buff(secret, 31))]);
     const commitment = this.pedersenHash(preimage);
     const commitmentHex = this.toHex(commitment);
     const nullifierHash = this.pedersenHash(utils.leInt2Buff(nullifier, 31));
@@ -142,6 +161,7 @@ export class ZKPClient {
       netId: number,
       deposit: Deposit
     }{
+    console.log("NOTE STRING: ", noteString);
     const noteRegex = /tornado-(?<currency>\w+)-(?<amount>[\d.]+)-(?<netId>\d+)-0x(?<note>[0-9a-fA-F]{124})/g
     const match = noteRegex.exec(noteString);
     if(!match){
@@ -185,7 +205,7 @@ export class ZKPClient {
     return {tornadoAddress, tornadoInstance, deployedBlockNumber, subgraph};
   }
 
-  async queryLatestTimestamp(
+  async queryLatestIndex(
     currency: string,
     amount: string,
     subgraph: string
@@ -197,8 +217,8 @@ export class ZKPClient {
     const query = {
       query: `
       query($currency: String, $amount: String){
-        deposits(first: 1, orderBy: timestamp, orderDirection: desc, where: {currency: $currency, amount: $amount}) {
-          timestamp
+        deposits(first: 1, orderBy: index, orderDirection: desc, where: {currency: $currency, amount: $amount}) {
+          index
         }
       }
       `,
@@ -206,7 +226,7 @@ export class ZKPClient {
     }
     const querySubgraph = await axios.post(subgraph, query);
     const queryResult = querySubgraph.data.data.deposits;
-    const result = queryResult[0].timestamp;
+    const result = queryResult[0].index;
     return Number(result);
   }
 
@@ -293,8 +313,10 @@ export class ZKPClient {
     currency: string,
     amount: string,
     subgraph: string,
+    setProgress: Function
   ){
-    const latestTimestamp = await this.queryLatestTimestamp(currency, amount, subgraph);
+    this._events = [];
+    const latestIndex = await this.queryLatestIndex(currency, amount, subgraph);
     // let lastBlock = 0;
     for (let index='0';;){
       // console.log("i: ", i);
@@ -302,9 +324,13 @@ export class ZKPClient {
       // console.log("result: ", result);
       
       if (Object.keys(result).length === 0) {
+        setProgress(100);
         break;
       } else{
-        index = String(result[result.length-1].leafIndex + 1);
+        const curIndex = result[result.length-1].leafIndex;
+        const progress = 100*(curIndex + 1) / latestIndex;
+        setProgress(progress);
+        index = String(curIndex + 1);
         const resultBlock = result[result.length - 1].blockNumber;
         const resultTimestamp = result[result.length - 1].timestamp;
         await this.saveResult(result);
@@ -323,6 +349,7 @@ export class ZKPClient {
 
   async saveResult(result: Array<Event>){
     this._events = this._events.concat(result);
+    this.process = this._events.length;
   }
 
   getEvents(){
@@ -345,7 +372,7 @@ export class ZKPClient {
       return BigInt(event.commitment).toString(10);
     });
     console.log("leafIndex: ", leafIndex);
-    console.log(leaves);
+    // console.log(leaves);
     const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, leaves, {hashFunction:(l,r)=>this.simpleHash(l,r), zeroElement:'21663839004416932945382355908790599225266501822907911457504978515578255421292'});
     const root = tree.root;
     // console.log("root: ", root);
@@ -355,6 +382,21 @@ export class ZKPClient {
     // console.log("pathIndices: ", pathIndices);
     return {root, pathElements, pathIndices};
   }
+  generateInputFirstPart(
+    root: string,
+    pathElements: Array<string>,
+    pathIndices: Array<number>,
+    deposit: Deposit): string {
+      const input = {
+        root: root,
+        nullifierHash: deposit.nullifierHash.toString(),
+        nullifier: deposit.nullifier.toString(),
+        secret: deposit.secret.toString(),
+        pathElements: pathElements,
+        pathIndices: pathIndices
+      };
+      return JSON.stringify(input);
+    }
   // returns {string, string[]}
   async generateProof(
     root: string,
@@ -369,10 +411,10 @@ export class ZKPClient {
         // relayer: 0,
         // fee: 0,
         // refund: 0,
-        recipient: BigInt("1164257306050234523562129364841785784763126090021"),
-        relayer: BigInt("0"),
-        fee:BigInt("0"),
-        refund: BigInt("0"),
+        // recipient: BigInt("1164257306050234523562129364841785784763126090021"),
+        // relayer: BigInt("0"),
+        // fee:BigInt("0"),
+        // refund: BigInt("0"),
         // Private snark inputs
         nullifier: deposit.nullifier,
         secret: deposit.secret,
@@ -382,11 +424,9 @@ export class ZKPClient {
       console.log("input\n");
       console.log(input);
       console.log('Generating SNARK proof');
-      console.time('Proof time');
       const wtns = await this.calculator.calculateWTNSBin(input, 0);
       const { proof:proofOutput } = await snarkjs.groth16.prove(this._zkey, wtns);
       console.log('Proof generated');
-      console.timeEnd('Proof time');
       console.log(proofOutput);
       const proofData = {
         a: [proofOutput.pi_a[0], proofOutput.pi_a[1]] as [bigint, bigint],
@@ -397,14 +437,9 @@ export class ZKPClient {
         c: [proofOutput.pi_c[0], proofOutput.pi_c[1]] as [bigint, bigint],
       } as Proof;
       const { proof } = this.toSolidityInput(proofData);
-      console.timeEnd('Proof time');
       const args = [
         this.toHex(BigInt(input.root)),
         this.toHex(input.nullifierHash),
-        this.toHex(input.recipient, 20),
-        this.toHex(input.relayer, 20),
-        this.toHex(input.fee),
-        this.toHex(input.refund)
       ];
       return { proof, args};
   }

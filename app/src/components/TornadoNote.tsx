@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { BigNumber } from "ethers";
 
 import useCircuit from "../hooks/useCircuit";
 import { Deposit } from "circuits";
@@ -11,17 +10,13 @@ function TornadoNote({ onResult }: { onResult: (note: string) => void }) {
 
   const [note, setNote] = useState<string>("");
   const [progress, setProgress] = useState<number>(0);
-
-
+  const [proof, setProof] = useState<string>("");
 
   const fetchNote = async () => {
     if (!client) return;
-    console.log(client.parseNote(note))
+    const proofInputJson = await client.calculateProofFromNote(note, setProgress);
+    setProof(proofInputJson);
   }
-
-  useEffect(() => {
-    if (note) onResult(note);
-  }, [note]);
 
   return (
     <div>
@@ -31,7 +26,10 @@ function TornadoNote({ onResult }: { onResult: (note: string) => void }) {
         onChange={(e) => setNote(e.target.value)}
       />
       <br />
+      
       <button onClick={fetchNote}>Fetch</button>
+      <br/>
+      <progress id="fetched" value={progress} max="100"></progress>
     </div>
   );
 }

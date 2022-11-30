@@ -106,17 +106,21 @@ template DummyCommitmentHasher() {
 // Verifies that commitment that corresponds to given secret and nullifier is included in the merkle tree of deposits
 template Withdraw(levels) {
     signal input root;
+    // signal input blacklistRoot;
     signal input nullifierHash;
-    signal input recipient; // not taking part in any computations
-    signal input relayer;  // not taking part in any computations
-    signal input fee;      // not taking part in any computations
-    signal input refund;   // not taking part in any computations
+    // signal input recipient; // not taking part in any computations
+    // signal input relayer;  // not taking part in any computations
+    // signal input fee;      // not taking part in any computations
+    // signal input refund;   // not taking part in any computations
 
     // private inputs
     signal input nullifier;
     signal input secret;
     signal input pathElements[levels];
     signal input pathIndices[levels];
+
+    // signal input blacklistPathElements[256];
+    // signal input blacklistPathIndices[256];
 
     component hasher = CommitmentHasher();
     hasher.nullifier <== nullifier;
@@ -130,16 +134,17 @@ template Withdraw(levels) {
         tree.pathElements[i] <== pathElements[i];
         tree.pathIndices[i] <== pathIndices[i];
     }
-    signal recipientSquare;
-    signal feeSquare;
-    signal relayerSquare;
-    signal refundSquare;
-    recipientSquare <== recipient * recipient;
-    feeSquare <== fee * fee;
-    relayerSquare <== relayer * relayer;
-    refundSquare <== refund * refund;
 
+    // component blacklistTree = MerkleTreeChecker(256);
+    // tree.leaf <== 0;
+    // tree.root <== blacklistRoot;
+    // for (var i = 0; i < 256; i++) {
+    //     tree.pathElements[i] <== blacklistPathElements[i];
+    //     tree.pathIndices[i] <== blacklistPathIndices[i];
+    // }
 }
-component main {public [root, nullifierHash, recipient, fee, relayer, refund]} = Withdraw(20);
+
+component main {public [root, nullifierHash]} = Withdraw(20);
+// component main {public [root, blacklistRoot, nullifierHash]} = Withdraw(20);
 // component main {public [commitment, nullifierHash]} = DummyCommitmentHasher();
 // component main {public [left, right]} = HashLeftRight();
