@@ -10,6 +10,8 @@ import axios, { AxiosRequestConfig, AxiosPromise, AxiosResponse } from 'axios';
 import merkleTree, { Element } from "fixed-merkle-tree";
 import { ethers } from "ethers";
 
+import { MerkleTree, Witness } from "./MerkleTree";
+
 export interface Proof {
   a: [bigint, bigint];
   b: [[bigint, bigint], [bigint, bigint]];
@@ -92,6 +94,19 @@ export class ZKPClient {
 
     const inputJson = this.generateInputFirstPart(root as string, pathElements as string[], pathIndices, deposit);
     return inputJson;
+  }
+
+  async addBlacklist(proofInputSring: string, blacklist: string): Promise<string> {
+    // unstringify the proof input
+    const proofInput = JSON.parse(proofInputSring);
+    // split blacklist by new line and remove empty lines
+    const blacklistArray = blacklist.split('\n').filter((item) => item);
+    // add blacklist to proof input
+    proofInput.blacklist = blacklistArray;
+    // stringify the proof input
+    const proofInputString = JSON.stringify(proofInput);  
+    console.log(proofInputString);
+    return proofInputString;
   }
 
   // async init() {
@@ -373,15 +388,22 @@ export class ZKPClient {
     });
     console.log("leafIndex: ", leafIndex);
     // console.log(leaves);
-    const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, leaves, {hashFunction:(l,r)=>this.simpleHash(l,r), zeroElement:'21663839004416932945382355908790599225266501822907911457504978515578255421292'});
-    const root = tree.root;
+    // const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, leaves, {hashFunction:(l,r)=>this.simpleHash(l,r), zeroElement:'21663839004416932945382355908790599225266501822907911457504978515578255421292'});
+    const tree = new MerkleTree((l,r)=>this.simpleHash(l,r), '21663839004416932945382355908790599225266501822907911457504978515578255421292', ZKPClient.MERKLE_TREE_HEIGHT + 1);
+    console.log("Starting to generate merkle tree");
+    for(let i=0; i<leaves.length; i++){
+      tree.setLeaf(BigInt(i), leaves[i]);
+    }
+    console.log("Leaves added");
+    // const root = tree.getRoot();
     // console.log("root: ", root);
-    const { pathElements, pathIndices, pathRoot } = tree.path(leafIndex);
+    const { pathElements, pathIndices, root } = tree.getWitness(BigInt(leafIndex));
     // console.log("pathElements: ", pathElements);
-    console.log("Path root: ", pathRoot);
+    console.log("Path root: ", root);
     // console.log("pathIndices: ", pathIndices);
     return {root, pathElements, pathIndices};
   }
+
   generateInputFirstPart(
     root: string,
     pathElements: Array<string>,
@@ -498,4 +520,34 @@ export class ZKPClient {
       c: [proof.pi_c[0], proof.pi_c[1]] as [bigint, bigint],
     };
   }
+
+  // dummyFixedMerkleTree() {
+  //   const leaves = [
+  //     "18610117251467096985562627588015494431543472655911885532028554152283417606137",
+  //     "20013144631875170005542894290824968371756160411515969205349070927285682589581",
+  //     "20013144631875170005542894290824968371756160411515969205349170927285682589581"
+  //   ];
+  //   const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, leaves, {hashFunction:(l,r)=>this.simpleHash(l,r), zeroElement:'21663839004416932945382355908790599225266501822907911457504978515578255421292'});
+  //   const root = tree.root;
+  //   // console.log("root: ", root);
+  //   const { pathElements, pathIndices, pathRoot } = tree.path(1);
+  //   return {root, pathElements, pathIndices};
+  // }
+
+  dummyMerkleTree() {
+    const leaves = [
+      "18610117251467096985562627588015494431543472655911885532028554152283417606137",
+      "20013144631875170005542894290824968371756160411515969205349070927285682589581",
+      "20013144631875170005542894290824968371756160411515969205349170927285682589581"
+    ];
+    const tree = new MerkleTree((l,r)=>this.simpleHash(l,r), '21663839004416932945382355908790599225266501822907911457504978515578255421292', ZKPClient.MERKLE_TREE_HEIGHT + 1);
+    for(let i=0; i<leaves.length; i++) {
+      tree.setLeaf(BigInt(i), leaves[i]);
+    }
+    const { pathElements, pathIndices, root } = tree.getWitness(BigInt(1));
+    // console.log("root: ", root);
+    return {root, pathElements, pathIndices};
+  }
+
+
 }
