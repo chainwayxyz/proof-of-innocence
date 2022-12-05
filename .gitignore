@@ -115,3 +115,6 @@ artifacts
 
 #jetbrains IDE
 .idea
+circuits/pot18_0000.ptau
+.gitignore
+circuits/pot18_0001.ptau

@@ -12,6 +12,10 @@ import { ethers } from "ethers";
 
 import { MerkleTree, Witness } from "./MerkleTree";
 
+// import path and fs
+import path from "path";
+import fs from "fs";
+
 export interface Proof {
   a: [bigint, bigint];
   b: [[bigint, bigint], [bigint, bigint]];
@@ -100,9 +104,56 @@ export class ZKPClient {
     // unstringify the proof input
     const proofInput = JSON.parse(proofInputSring);
     // split blacklist by new line and remove empty lines
-    const blacklistArray = blacklist.split('\n').filter((item) => item);
-    // add blacklist to proof input
-    proofInput.blacklist = blacklistArray;
+    const blacklistArray = blacklist.split('\n');
+    // const tree = new MerkleTree((l,r)=>this.simpleHash(l,r), '21663839004416932945382355908790599225266501822907911457504978515578255421292', 32 + 1);
+    const tree = new MerkleTree((l,r)=>this.simpleHash(l,r), '0', 32 + 1);
+    for (let i = 0; i < blacklistArray.length; i++) {
+      if (blacklistArray[i] !== '') {
+        // add first 32 bytes of the hash of the blacklist item to the tree
+        
+        // ;
+        const bigintHali = BigInt(blacklistArray[i]);
+        const bufferHali = utils.leInt2Buff(bigintHali).slice(0, 4);
+        const intHali = utils.leBuff2int(bufferHali)
+        tree.setLeaf(intHali, '1'); // 4*8 = 32
+        // tree.setLeaf(BigInt(blacklistArray[i]), '1');
+      }
+    }
+    const bigintHali = BigInt(proofInput.commitment);
+    const bufferHali = utils.leInt2Buff(bigintHali).slice(0, 4);
+    const intHali = utils.leBuff2int(bufferHali)
+    console.log("intHali", intHali);
+    // const root = tree.getRoot();
+    const {pathElements, pathIndices, root} = tree.getWitness(intHali);
+    proofInput.blacklistRoot = root;
+    proofInput.blacklistPathElements = pathElements;
+    proofInput.blacklistPathIndices = pathIndices;
+    // delete commitment from proof input
+    delete proofInput.commitment;
+    console.log(proofInput);
+    // delete proofInput.blacklistRoot;
+    // delete proofInput.blacklistPathElements;
+    // delete proofInput.blacklistPathIndices;
+    console.log("Calculate WTNS Bin");
+    const wtns = await this.calculator.calculateWTNSBin(proofInput, 0);
+    console.log("Calculate Proof");
+    console.log(this._zkey);
+    console.log(wtns);
+    const { proof:proofOutput } = await snarkjs.groth16.prove(this._zkey, wtns);
+    console.log('Proof generated');
+    console.log(proofOutput);
+    const proofData = {
+      a: [proofOutput.pi_a[0], proofOutput.pi_a[1]] as [bigint, bigint],
+      b: [proofOutput.pi_b[0].reverse(), proofOutput.pi_b[1].reverse()] as [
+        [bigint, bigint],
+        [bigint, bigint]
+      ],
+      c: [proofOutput.pi_c[0], proofOutput.pi_c[1]] as [bigint, bigint],
+    } as Proof;
+    const { proof } = this.toSolidityInput(proofData);
+    return proof;
+    return JSON.stringify(proofInput);
+
     // stringify the proof input
     const proofInputString = JSON.stringify(proofInput);  
     console.log(proofInputString);
@@ -330,6 +381,19 @@ export class ZKPClient {
     subgraph: string,
     setProgress: Function
   ){
+    // if there is a file, read it '/Users/ekrembal/Documents/chainway/proof-of-innocence/circuits/test/events.json
+    const filePath = '/Users/ekrembal/Documents/chainway/proof-of-innocence/circuits/test/events.json';
+    const fileExists = fs.existsSync
+    if(fileExists(filePath)){
+      console.log("File exists");
+      // read file
+      const file = fs.readFileSync(filePath, 'utf8');
+      const events = JSON.parse(file);
+      this._events = events;
+      setProgress(100);
+      return;
+    }
+
     this._events = [];
     const latestIndex = await this.queryLatestIndex(currency, amount, subgraph);
     // let lastBlock = 0;
@@ -359,6 +423,10 @@ export class ZKPClient {
       }
     }
     console.log("Length = ", this._events.length);
+
+    // save events to file
+    const events = JSON.stringify(this._events);
+    fs.writeFileSync(filePath, events);
     // return lastBlock;
   }
 
@@ -388,16 +456,18 @@ export class ZKPClient {
     });
     console.log("leafIndex: ", leafIndex);
     // console.log(leaves);
-    // const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, leaves, {hashFunction:(l,r)=>this.simpleHash(l,r), zeroElement:'21663839004416932945382355908790599225266501822907911457504978515578255421292'});
-    const tree = new MerkleTree((l,r)=>this.simpleHash(l,r), '21663839004416932945382355908790599225266501822907911457504978515578255421292', ZKPClient.MERKLE_TREE_HEIGHT + 1);
-    console.log("Starting to generate merkle tree");
-    for(let i=0; i<leaves.length; i++){
-      tree.setLeaf(BigInt(i), leaves[i]);
-    }
-    console.log("Leaves added");
+    const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, leaves, {hashFunction:(l,r)=>this.simpleHash(l,r), zeroElement:'21663839004416932945382355908790599225266501822907911457504978515578255421292'});
+    // const tree = new MerkleTree((l,r)=>this.simpleHash(l,r), '21663839004416932945382355908790599225266501822907911457504978515578255421292', ZKPClient.MERKLE_TREE_HEIGHT + 1);
+    // console.log("Starting to generate merkle tree");
+    // for(let i=0; i<leaves.length; i++){
+    //   tree.setLeaf(BigInt(i), leaves[i]);
+    // }
+    // console.log("Leaves added");
+    const root = tree.root;
     // const root = tree.getRoot();
     // console.log("root: ", root);
-    const { pathElements, pathIndices, root } = tree.getWitness(BigInt(leafIndex));
+    // const { pathElements, pathIndices, root } = tree.getWitness(BigInt(leafIndex));
+    const { pathElements, pathIndices } = tree.path(leafIndex);
     // console.log("pathElements: ", pathElements);
     console.log("Path root: ", root);
     // console.log("pathIndices: ", pathIndices);
@@ -409,16 +479,17 @@ export class ZKPClient {
     pathElements: Array<string>,
     pathIndices: Array<number>,
     deposit: Deposit): string {
-      const input = {
-        root: root,
-        nullifierHash: deposit.nullifierHash.toString(),
-        nullifier: deposit.nullifier.toString(),
-        secret: deposit.secret.toString(),
-        pathElements: pathElements,
-        pathIndices: pathIndices
-      };
-      return JSON.stringify(input);
-    }
+    const input = {
+      commitment: deposit.commitment.toString(),
+      root: root,
+      nullifierHash: deposit.nullifierHash.toString(),
+      nullifier: deposit.nullifier.toString(),
+      secret: deposit.secret.toString(),
+      pathElements: pathElements,
+      pathIndices: pathIndices
+    };
+    return JSON.stringify(input);
+  }
   // returns {string, string[]}
   async generateProof(
     root: string,
