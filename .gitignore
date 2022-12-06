@@ -118,3 +118,5 @@ artifacts
 circuits/pot18_0000.ptau
 .gitignore
 circuits/pot18_0001.ptau
+.DS_Store
+circuits/pot20_final.ptau

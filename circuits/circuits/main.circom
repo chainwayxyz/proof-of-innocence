@@ -107,10 +107,7 @@ template DummyCommitmentHasher() {
 template Withdraw(levels) {
     signal input root;
     signal input nullifierHash;
-    // signal input recipient; // not taking part in any computations
-    // signal input relayer;  // not taking part in any computations
-    // signal input fee;      // not taking part in any computations
-    // signal input refund;   // not taking part in any computations
+    signal input blacklistRoot;
 
     // private inputs
     signal input nullifier;
@@ -118,9 +115,8 @@ template Withdraw(levels) {
     signal input pathElements[levels];
     signal input pathIndices[levels];
 
-    signal input blacklistRoot;
-    signal input blacklistPathElements[32];
-    signal input blacklistPathIndices[32];
+    signal input blacklistPathElements[254];
+    signal input blacklistPathIndices[254];
 
     component hasher = CommitmentHasher();
     hasher.nullifier <== nullifier;
@@ -135,16 +131,19 @@ template Withdraw(levels) {
         tree.pathIndices[i] <== pathIndices[i];
     }
 
-    component blacklistTree = MerkleTreeChecker(32);
+    component blacklistTree = MerkleTreeChecker(254);
     blacklistTree.leaf <== 0;
     blacklistTree.root <== blacklistRoot;
-    for (var i = 0; i < 32; i++) {
+    for (var i = 0; i < 254; i++) {
         blacklistTree.pathElements[i] <== blacklistPathElements[i];
         blacklistTree.pathIndices[i] <== blacklistPathIndices[i];
     }
+
+    component commitmentBits = Bits2Num(254);
+    for(var i = 0; i < 254; i++) {
+        commitmentBits.in[i] <== blacklistPathIndices[i];
+    }
+    commitmentBits.out === hasher.commitment;
 }
 
-// component main {public [root, nullifierHash]} = Withdraw(20);
 component main {public [root, blacklistRoot, nullifierHash]} = Withdraw(20);
-// component main {public [commitment, nullifierHash]} = DummyCommitmentHasher();
-// component main {public [left, right]} = HashLeftRight();

@@ -106,17 +106,17 @@ export class ZKPClient {
     // split blacklist by new line and remove empty lines
     const blacklistArray = blacklist.split('\n');
     // const tree = new MerkleTree((l,r)=>this.simpleHash(l,r), '21663839004416932945382355908790599225266501822907911457504978515578255421292', 32 + 1);
-    const tree = new MerkleTree((l,r)=>this.simpleHash(l,r), '0', 32 + 1);
+    const tree = new MerkleTree((l,r)=>this.simpleHash(l,r), '0', 254 + 1);
     for (let i = 0; i < blacklistArray.length; i++) {
       if (blacklistArray[i] !== '') {
         // add first 32 bytes of the hash of the blacklist item to the tree
         
-        // ;
-        const bigintHali = BigInt(blacklistArray[i]);
-        const bufferHali = utils.leInt2Buff(bigintHali).slice(0, 4);
-        const intHali = utils.leBuff2int(bufferHali)
-        tree.setLeaf(intHali, '1'); // 4*8 = 32
-        // tree.setLeaf(BigInt(blacklistArray[i]), '1');
+        // // ;
+        // const bigintHali = BigInt(blacklistArray[i]);
+        // const bufferHali = utils.leInt2Buff(bigintHali).slice(0, 4);
+        // const intHali = utils.leBuff2int(bufferHali)
+        // tree.setLeaf(intHali, '1'); // 4*8 = 32
+        tree.setLeaf(BigInt(blacklistArray[i]), '1');
       }
     }
     const bigintHali = BigInt(proofInput.commitment);
@@ -124,7 +124,8 @@ export class ZKPClient {
     const intHali = utils.leBuff2int(bufferHali)
     console.log("intHali", intHali);
     // const root = tree.getRoot();
-    const {pathElements, pathIndices, root} = tree.getWitness(intHali);
+    // const {pathElements, pathIndices, root} = tree.getWitness(intHali);
+    const {pathElements, pathIndices, root} = tree.getWitness(BigInt(proofInput.commitment));
     proofInput.blacklistRoot = root;
     proofInput.blacklistPathElements = pathElements;
     proofInput.blacklistPathIndices = pathIndices;
