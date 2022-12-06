@@ -1,8 +1,5 @@
-import { useEffect, useState } from "react";
-
+import { useState } from "react";
 import useCircuit from "../hooks/useCircuit";
-import { Deposit } from "circuits";
-
 
 
 function TornadoNote({ onResult }: { onResult: (note: string) => void }) {
@@ -17,13 +14,13 @@ function TornadoNote({ onResult }: { onResult: (note: string) => void }) {
     if (!client) return;
     const proofInputJson = await client.calculateProofFromNote(note, setProgress);
     setProof(proofInputJson);
+    setProgress(100);
   }
 
   const generateProof = async () => {
     if (!client) return;
     const proofWithBlacklist = await client.addBlacklist(proof, blacklist);
     onResult(proofWithBlacklist);
-    // setSon(proofWithBlacklist);
   }
 
   return (
@@ -39,7 +36,7 @@ function TornadoNote({ onResult }: { onResult: (note: string) => void }) {
       <br/>
       <progress id="fetched" value={progress} max="100"></progress>
       <br />
-      <h2>Step 3. Enter your blacklisted commitments here</h2>
+      <h2>Step 2. Enter your blacklisted commitments here</h2>
       {<>
         <textarea
         placeholder="Enter a blacklist"

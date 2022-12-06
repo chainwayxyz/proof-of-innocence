@@ -48,7 +48,7 @@ export class ZKPClient {
   private _pedersen:any;
   private _mimcsponge: any;
   private _events: Array<Event> = [];
-  private _rpc: string = "";
+  // private _rpc: string = "";
   private static MERKLE_TREE_HEIGHT = 20;
   process: number = 0;
 
@@ -83,7 +83,7 @@ export class ZKPClient {
     this._zkey.type = "mem";
     this._pedersen = await buildPedersenHash();
     this._mimcsponge = await buildMimcSponge();
-    this._rpc = "https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161";
+    // this._rpc = "https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161";
     return this;
   }
 
@@ -130,7 +130,6 @@ export class ZKPClient {
       ],
       c: [proofOutput.pi_c[0], proofOutput.pi_c[1]] as [bigint, bigint],
     } as Proof;
-    // const { proof } = this.toSolidityInput(proofData);
 
     const returnData = {proof: proofData,
       publicInputs:[proofInput.root, proofInput.nullifierHash, proofInput.blacklistRoot],
@@ -321,43 +320,43 @@ export class ZKPClient {
     return mapResult;
   }
 
-  async quertFromRPC(
-    tornadoInstance: string,
-    deployedBlockNumber: number,
-    startBlock: number,
-  ) {
-    const provider = new ethers.providers.JsonRpcProvider(this._rpc);
-    const tornadoContract = new ethers.Contract(tornadoInstance, tornadoInstanceABI, provider);
-    // const tornadoInstanceContract = new ethers.Contract(tornadoInstance, tornadoInstanceABI, provider);
-    const filter = tornadoContract.filters.Deposit();
-    const targetBlock = await provider.getBlockNumber();
-    // const startBlock = deployedBlockNumber;
-    const chunks = 10000;
-    let allEvents:Event[] = [];
+  // async quertFromRPC(
+  //   tornadoInstance: string,
+  //   deployedBlockNumber: number,
+  //   startBlock: number,
+  // ) {
+  //   const provider = new ethers.providers.JsonRpcProvider(this._rpc);
+  //   const tornadoContract = new ethers.Contract(tornadoInstance, tornadoInstanceABI, provider);
+  //   // const tornadoInstanceContract = new ethers.Contract(tornadoInstance, tornadoInstanceABI, provider);
+  //   const filter = tornadoContract.filters.Deposit();
+  //   const targetBlock = await provider.getBlockNumber();
+  //   // const startBlock = deployedBlockNumber;
+  //   const chunks = 10000;
+  //   let allEvents:Event[] = [];
 
-    for(let i = startBlock; i < targetBlock; i += chunks){
-      let j;
-      if (i + chunks - 1 > targetBlock) {
-        j = targetBlock;
-      } else {
-        j = i + chunks - 1;
-      }
-      let events = await tornadoContract.queryFilter(filter, i, j);
-      // console.log(events);
-      const mappedEvents:Event[] = events.map((event) => {
-        return {
-          blockNumber: event.blockNumber,
-          transactionHash: event.transactionHash,
-          commitment: event.args?.commitment,
-          leafIndex: event.args?.leafIndex,
-          timestamp: event.args?.timestamp
-        };
-      });
-      console.log(mappedEvents);
-      allEvents = allEvents.concat(mappedEvents);
-    }
-    return allEvents;
-  }
+  //   for(let i = startBlock; i < targetBlock; i += chunks){
+  //     let j;
+  //     if (i + chunks - 1 > targetBlock) {
+  //       j = targetBlock;
+  //     } else {
+  //       j = i + chunks - 1;
+  //     }
+  //     let events = await tornadoContract.queryFilter(filter, i, j);
+  //     // console.log(events);
+  //     const mappedEvents:Event[] = events.map((event) => {
+  //       return {
+  //         blockNumber: event.blockNumber,
+  //         transactionHash: event.transactionHash,
+  //         commitment: event.args?.commitment,
+  //         leafIndex: event.args?.leafIndex,
+  //         timestamp: event.args?.timestamp
+  //       };
+  //     });
+  //     console.log(mappedEvents);
+  //     allEvents = allEvents.concat(mappedEvents);
+  //   }
+  //   return allEvents;
+  // }
 
   async fetchGraphEvents(
     currency: string,
@@ -387,11 +386,11 @@ export class ZKPClient {
       // console.log("result: ", result);
       
       if (Object.keys(result).length === 0) {
-        setProgress(100);
+        setProgress(90);
         break;
       } else{
         const curIndex = result[result.length-1].leafIndex;
-        const progress = 100*(curIndex + 1) / latestIndex;
+        const progress = 90*(curIndex + 1) / latestIndex;
         setProgress(progress);
         index = String(curIndex + 1);
         const resultBlock = result[result.length - 1].blockNumber;
@@ -481,18 +480,8 @@ export class ZKPClient {
     pathIndices: Array<number>,
     deposit: Deposit): Promise<{proof: string, args: string[]}> {
       const input = {
-        // Public snark inputs
         root: root,
         nullifierHash: deposit.nullifierHash,
-        // recipient: 0,
-        // relayer: 0,
-        // fee: 0,
-        // refund: 0,
-        // recipient: BigInt("1164257306050234523562129364841785784763126090021"),
-        // relayer: BigInt("0"),
-        // fee:BigInt("0"),
-        // refund: BigInt("0"),
-        // Private snark inputs
         nullifier: deposit.nullifier,
         secret: deposit.secret,
         pathElements: pathElements,
@@ -575,34 +564,4 @@ export class ZKPClient {
       c: [proof.pi_c[0], proof.pi_c[1]] as [bigint, bigint],
     };
   }
-
-  // dummyFixedMerkleTree() {
-  //   const leaves = [
-  //     "18610117251467096985562627588015494431543472655911885532028554152283417606137",
-  //     "20013144631875170005542894290824968371756160411515969205349070927285682589581",
-  //     "20013144631875170005542894290824968371756160411515969205349170927285682589581"
-  //   ];
-  //   const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, leaves, {hashFunction:(l,r)=>this.simpleHash(l,r), zeroElement:'21663839004416932945382355908790599225266501822907911457504978515578255421292'});
-  //   const root = tree.root;
-  //   // console.log("root: ", root);
-  //   const { pathElements, pathIndices, pathRoot } = tree.path(1);
-  //   return {root, pathElements, pathIndices};
-  // }
-
-  dummyMerkleTree() {
-    const leaves = [
-      "18610117251467096985562627588015494431543472655911885532028554152283417606137",
-      "20013144631875170005542894290824968371756160411515969205349070927285682589581",
-      "20013144631875170005542894290824968371756160411515969205349170927285682589581"
-    ];
-    const tree = new MerkleTree((l,r)=>this.simpleHash(l,r), '21663839004416932945382355908790599225266501822907911457504978515578255421292', ZKPClient.MERKLE_TREE_HEIGHT + 1);
-    for(let i=0; i<leaves.length; i++) {
-      tree.setLeaf(BigInt(i), leaves[i]);
-    }
-    const { pathElements, pathIndices, root } = tree.getWitness(BigInt(1));
-    // console.log("root: ", root);
-    return {root, pathElements, pathIndices};
-  }
-
-
 }
