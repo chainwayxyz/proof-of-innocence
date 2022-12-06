@@ -16,7 +16,7 @@ import TornadoNote from "./components/TornadoNote";
 import GenProof from "./components/GenProof";
 
 // import ipfs-http-client
-// import {create} from 'ipfs-http-client'
+import ipfsClient from 'ipfs-http-client'
 
 // const address = process.env["REACT_APP_CONTRACT_ADDRESS"] as string;
 // if (typeof address !== "string") throw Error("Configure contract address");
@@ -32,13 +32,17 @@ function App() {
 
   const saveToIpfs = async () => {
     console.log("saving to ipfs")
-    // console.log(create)
+    // console.log(ipfsClient)
+    const ipfs = ipfsClient('api.pinata.cloud', '5001', {protocol: 'https'})
+    console.log("yey generating cid")
+    // console.log(x)
     // // saves proof to ipfs with ipfsClient
     // const ipfs = create({ host: 'ipfs.infura.io', port: 5001, protocol: 'https' })
-    // // const ipfs = create({ host: 'ipfs.infura.io', port: 5001, protocol: 'https' })
-    // const { cid } = await ipfs.add(proof)
-    // console.log(cid.toString())
-    // setCid(cid.toString())
+    // const ipfs = create({ host: 'ipfs.infura.io', port: 5001, protocol: 'https' })
+    const { cid } = await ipfs.add(Buffer.from(proof))
+    console.log("Noluyo")
+    console.log(cid.toString())
+    setCid(cid.toString())
     // // const ipfs = ipfsClient.create({ host: 'ipfs.infura.io', port: 5001, protocol: 'https' })
     // const { cid } = await ipfs.add(proof)
     // console.log(cid.toString())

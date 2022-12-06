@@ -133,7 +133,7 @@ export class ZKPClient {
     // const { proof } = this.toSolidityInput(proofData);
 
     const returnData = {proof: proofData,
-      publicInputs:[proofInput.root, proofInput.blacklistRoot, proofInput.nullifierHash],
+      publicInputs:[proofInput.root, proofInput.nullifierHash, proofInput.blacklistRoot],
       blacklist: blacklistArray
     };
     return JSON.stringify(returnData);
