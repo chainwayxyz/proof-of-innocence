@@ -100,6 +100,14 @@ export class ZKPClient {
     return inputJson;
   }
 
+  getMerkleRoot(blacklistArray: string[]) {
+    const tree = new MerkleTree((l,r)=>this.simpleHash(l,r), '21663839004416932945382355908790599225266501822907911457504978515578255421292', 254 + 1);
+    for (let i = 0; i < blacklistArray.length; i++) {
+        tree.setLeaf(BigInt(blacklistArray[i]), '1');
+    }
+    return tree.getRoot();
+  }
+
   async addBlacklist(proofInputSring: string, blacklist: string): Promise<string> {
     // unstringify the proof input
     const proofInput = JSON.parse(proofInputSring);

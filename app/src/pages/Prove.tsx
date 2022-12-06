@@ -1,20 +1,20 @@
 import { useState } from "react";
 
 import TornadoNote from "../components/TornadoNote";
+import axios from "axios";
 
 function Prove() {
-  const [proof, setProof] = useState<string>("asd");
+  const [proof, setProof] = useState<string>('{"a":"b"}');
   const [cid, setCid] = useState<string>("");
 
   const saveToIpfs = async () => {
     console.log("saving to ipfs")
-    // send request to https://proof-of-innocence.herokuapp.com/ with proof as post body
-    const response = await fetch("https://proof-of-innocence.herokuapp.com/", {
-      method: "POST",
-      body: proof,
-    });
-    const cid = await response.text();
-    setCid(cid);
+    // send request to https://proof-of-innocence.herokuapp.com/api with proof as post body
+    // set cid to response
+    console.log(proof);
+    const response = await axios.post("https://proof-of-innocence.herokuapp.com/api", JSON.parse(proof));
+    console.log(response.data);
+    setCid(response.data['ipfsHash']);
   }
   
   return (
