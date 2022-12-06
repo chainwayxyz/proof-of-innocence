@@ -104,27 +104,11 @@ export class ZKPClient {
     // unstringify the proof input
     const proofInput = JSON.parse(proofInputSring);
     // split blacklist by new line and remove empty lines
-    const blacklistArray = blacklist.split('\n');
-    // const tree = new MerkleTree((l,r)=>this.simpleHash(l,r), '21663839004416932945382355908790599225266501822907911457504978515578255421292', 32 + 1);
-    const tree = new MerkleTree((l,r)=>this.simpleHash(l,r), '0', 254 + 1);
+    const blacklistArray = blacklist.split('\n').filter((item) => item !== '');
+    const tree = new MerkleTree((l,r)=>this.simpleHash(l,r), '21663839004416932945382355908790599225266501822907911457504978515578255421292', 254 + 1);
     for (let i = 0; i < blacklistArray.length; i++) {
-      if (blacklistArray[i] !== '') {
-        // add first 32 bytes of the hash of the blacklist item to the tree
-        
-        // // ;
-        // const bigintHali = BigInt(blacklistArray[i]);
-        // const bufferHali = utils.leInt2Buff(bigintHali).slice(0, 4);
-        // const intHali = utils.leBuff2int(bufferHali)
-        // tree.setLeaf(intHali, '1'); // 4*8 = 32
         tree.setLeaf(BigInt(blacklistArray[i]), '1');
-      }
     }
-    const bigintHali = BigInt(proofInput.commitment);
-    const bufferHali = utils.leInt2Buff(bigintHali).slice(0, 4);
-    const intHali = utils.leBuff2int(bufferHali)
-    console.log("intHali", intHali);
-    // const root = tree.getRoot();
-    // const {pathElements, pathIndices, root} = tree.getWitness(intHali);
     const {pathElements, pathIndices, root} = tree.getWitness(BigInt(proofInput.commitment));
     proofInput.blacklistRoot = root;
     proofInput.blacklistPathElements = pathElements;
@@ -132,14 +116,9 @@ export class ZKPClient {
     // delete commitment from proof input
     delete proofInput.commitment;
     console.log(proofInput);
-    // delete proofInput.blacklistRoot;
-    // delete proofInput.blacklistPathElements;
-    // delete proofInput.blacklistPathIndices;
     console.log("Calculate WTNS Bin");
     const wtns = await this.calculator.calculateWTNSBin(proofInput, 0);
     console.log("Calculate Proof");
-    console.log(this._zkey);
-    console.log(wtns);
     const { proof:proofOutput } = await snarkjs.groth16.prove(this._zkey, wtns);
     console.log('Proof generated');
     console.log(proofOutput);
@@ -151,9 +130,13 @@ export class ZKPClient {
       ],
       c: [proofOutput.pi_c[0], proofOutput.pi_c[1]] as [bigint, bigint],
     } as Proof;
-    const { proof } = this.toSolidityInput(proofData);
-    return proof;
-    return JSON.stringify(proofInput);
+    // const { proof } = this.toSolidityInput(proofData);
+
+    const returnData = {proof: proofData,
+      publicInputs:[proofInput.root, proofInput.blacklistRoot, proofInput.nullifierHash],
+      blacklist: blacklistArray
+    };
+    return JSON.stringify(returnData);
 
     // stringify the proof input
     const proofInputString = JSON.stringify(proofInput);  
@@ -383,17 +366,17 @@ export class ZKPClient {
     setProgress: Function
   ){
     // if there is a file, read it '/Users/ekrembal/Documents/chainway/proof-of-innocence/circuits/test/events.json
-    const filePath = '/Users/ekrembal/Documents/chainway/proof-of-innocence/circuits/test/events.json';
-    const fileExists = fs.existsSync
-    if(fileExists(filePath)){
-      console.log("File exists");
-      // read file
-      const file = fs.readFileSync(filePath, 'utf8');
-      const events = JSON.parse(file);
-      this._events = events;
-      setProgress(100);
-      return;
-    }
+    // const filePath = '/Users/ekrembal/Documents/chainway/proof-of-innocence/circuits/test/events.json';
+    // const fileExists = fs.existsSync
+    // if(fileExists(filePath)){
+    //   console.log("File exists");
+    //   // read file
+    //   const file = fs.readFileSync(filePath, 'utf8');
+    //   const events = JSON.parse(file);
+    //   this._events = events;
+    //   setProgress(100);
+    //   return;
+    // }
 
     this._events = [];
     const latestIndex = await this.queryLatestIndex(currency, amount, subgraph);
@@ -426,8 +409,8 @@ export class ZKPClient {
     console.log("Length = ", this._events.length);
 
     // save events to file
-    const events = JSON.stringify(this._events);
-    fs.writeFileSync(filePath, events);
+    // const events = JSON.stringify(this._events);
+    // fs.writeFileSync(filePath, events);
     // return lastBlock;
   }
 

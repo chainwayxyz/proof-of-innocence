@@ -104,16 +104,4 @@ describe("Test zkp circuit and scripts", function () {
     const input = await client.addBlacklist(proofStr, blacklistStr.join("\n"));
     console.log(input);
   });
-  // xit("Merkle tree should work", async function () {
-  //   let {root, pathElements, pathIndices} = client.dummyFixedMerkleTree();
-  //   console.log(root);
-  //   console.log(pathElements);
-  //   console.log(pathIndices);
-
-  //   let {root:root2, pathElements:pathElements2, pathIndices:pathIndices2} = client.dummyMerkleTree();
-  //   console.log(root2);
-  //   console.log(pathElements2);
-  //   console.log(pathIndices2);
-
-  // });
 });

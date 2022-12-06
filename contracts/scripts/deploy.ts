@@ -17,7 +17,7 @@ async function main() {
   const Verifier = await ethers.getContractFactory("Verifier");
   const verifier = await Verifier.deploy();
   await verifier.deployed();
-  const ZkApp = await ethers.getContractFactory("ZkApp");
+  const ZkApp = await ethers.getContractFactory("ProofOfInnocence");
   const zkApp = await ZkApp.deploy(verifier.address);
   await zkApp.deployed();
   console.log(zkApp.address);

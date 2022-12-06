@@ -132,7 +132,7 @@ template Withdraw(levels) {
     }
 
     component blacklistTree = MerkleTreeChecker(254);
-    blacklistTree.leaf <== 0;
+    blacklistTree.leaf <== 21663839004416932945382355908790599225266501822907911457504978515578255421292;
     blacklistTree.root <== blacklistRoot;
     for (var i = 0; i < 254; i++) {
         blacklistTree.pathElements[i] <== blacklistPathElements[i];

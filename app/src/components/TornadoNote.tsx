@@ -13,8 +13,6 @@ function TornadoNote({ onResult }: { onResult: (note: string) => void }) {
   const [proof, setProof] = useState<string>("");
   const [blacklist, setBlacklist] = useState<string>("");
 
-  const [son, setSon] = useState<string>("");
-
   const fetchNote = async () => {
     if (!client) return;
     const proofInputJson = await client.calculateProofFromNote(note, setProgress);
@@ -24,7 +22,8 @@ function TornadoNote({ onResult }: { onResult: (note: string) => void }) {
   const generateProof = async () => {
     if (!client) return;
     const proofWithBlacklist = await client.addBlacklist(proof, blacklist);
-    setSon(proofWithBlacklist);
+    onResult(proofWithBlacklist);
+    // setSon(proofWithBlacklist);
   }
 
   return (
@@ -39,8 +38,9 @@ function TornadoNote({ onResult }: { onResult: (note: string) => void }) {
       <button onClick={fetchNote}>Fetch</button>
       <br/>
       <progress id="fetched" value={progress} max="100"></progress>
-
-      {proof && <>
+      <br />
+      <h2>Step 3. Enter your blacklisted commitments here</h2>
+      {<>
         <textarea
         placeholder="Enter a blacklist"
         onChange={(e) => setBlacklist(e.target.value)}
@@ -48,9 +48,8 @@ function TornadoNote({ onResult }: { onResult: (note: string) => void }) {
       <br />
       
       <button onClick={generateProof}>Generate Proof</button>
+      <p>This may take a while</p>
 
-      <br/>
-      {son}
       </>}
     </div>
   );

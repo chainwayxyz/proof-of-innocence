@@ -11,7 +11,7 @@ interface IVerifier {
     ) external view returns (bool r);
 }
 
-contract ZkApp {
+contract ProofOfInnocence {
     struct Proof {
         uint256[2] a;
         uint256[2][2] b;
@@ -19,20 +19,9 @@ contract ZkApp {
     }
 
     address public immutable verifier;
-    uint256[3][] public records; // just a sample var
 
     constructor(address verifier_) {
         verifier = verifier_;
-    }
-
-    /**
-     * @dev This is the sample function
-     */
-    function record(uint256[3] memory publicSignals, Proof memory proof)
-        public
-    {
-        require(verify(publicSignals, proof), "SNARK verification failed");
-        records.push(publicSignals);
     }
 
     /**
@@ -50,9 +39,5 @@ contract ZkApp {
             publicSignals
         );
         return result;
-    }
-
-    function totalRecords() public view returns (uint256) {
-        return records.length;
     }
 }

@@ -21,7 +21,7 @@ export class MerkleTree {
   constructor(hashFn: HashFunction<Element>, zeroElement: Element, height: number = 256) {
     this._hashFn = hashFn;
     this.height = height;
-    this.leafCount = BigInt(2) ** BigInt(height - 1);
+    this.leafCount = BigInt(Math.pow(2, height - 1));
     this.zeroElement = zeroElement;
     this.zeroes = [zeroElement];
     for (let i = 1; i < height; i++) {
