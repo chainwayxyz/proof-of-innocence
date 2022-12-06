@@ -3,7 +3,7 @@
 import { expect } from "chai";
 import { BigNumber } from "ethers";
 // eslint-disable-next-line node/no-extraneous-import
-import { ZKPClient, EdDSA } from "circuits";
+import { ZKPClient } from "circuits";
 import fs from "fs";
 import path from "path";
 
@@ -11,7 +11,6 @@ describe("Test zkp circuit and scripts", function () {
   const privKey =
     "0xABCDEF12ABCDEF12ABCDEF12ABCDEF12ABCDEF12ABCDEF12ABCDEF12ABCDEF12";
   let client: ZKPClient;
-  let eddsa: EdDSA;
   let note: string;
   beforeEach(async () => {
     note = "tornado-eth-0.1-5-0xe49f60b5be7853c9d2af9db59eba98a7280f3b8908c339e6452bc0fb1b7e556a604fd9f824961956e4c8b881c5274ce36c11683070c749120e660cd941fd";
@@ -23,7 +22,6 @@ describe("Test zkp circuit and scripts", function () {
       path.join(__dirname, "../../circuits/zk/zkeys/main.zkey")
     );
     client = await new ZKPClient().init(wasm, zkey);
-    eddsa = await new EdDSA(privKey).init();
   });
   xit("Should able to prove and verify the zkp", async function () {
     const message = BigNumber.from(

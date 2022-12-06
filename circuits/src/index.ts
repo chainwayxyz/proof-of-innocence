@@ -1,5 +1,5 @@
 import { ZKPClient, Proof, Deposit } from "./client";
-import { EdDSA } from "./eddsa";
+// import { EdDSA } from "./eddsa";
 
-export { ZKPClient, EdDSA };
+export { ZKPClient };
 export type { Proof, Deposit };
