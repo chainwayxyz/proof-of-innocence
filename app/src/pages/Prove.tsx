@@ -4,7 +4,7 @@ import TornadoNote from "../components/TornadoNote";
 import axios from "axios";
 
 function Prove() {
-  const [proof, setProof] = useState<string>('{"a":"b"}');
+  const [proof, setProof] = useState<string>('');
   const [cid, setCid] = useState<string>("");
 
   const saveToIpfs = async () => {
@@ -18,15 +18,13 @@ function Prove() {
   }
   
   return (
-    <div className="App">
-      <h1 className="text-3xl font-bold underline">PoI</h1>
-      <h2>Step 1. Get past Tornado Cash deposits</h2>
-      <p>You can use my goerli deposit note here:<br/> tornado-eth-0.1-5-0xe49f60b5be7853c9d2af9db59eba98a7280f3b8908c339e6452bc0fb1b7e556a604fd9f824961956e4c8b881c5274ce36c11683070c749120e660cd941fd</p>
+    <div className="flex flex-col space-y-4">
+      <p className="text-xl mb-4">Step 1. Get past Tornado Cash deposits</p>
       <TornadoNote onResult={setProof}/>
-      {proof}
-      <h2>Step 3. Send your proof to ipfs</h2>
-      <button onClick={saveToIpfs}>Save to IPFS</button>
-      <p>Proof saved to IPFS with CID: {cid}</p>
+      <p>{proof}</p>
+      <p className="text-xl mb-4">Step 3. Save your proof to IPFS</p>
+      <button className="inline-block font-bold px-4 py-2 rounded bg-neutral-900 text-white" onClick={saveToIpfs}>Save to IPFS</button>
+      {cid && <><p  className="text-xl mb-4">Proof saved</p><a className="underline text-xl mb-4 color-blue-200" href={`/verify/${cid}`}>Go to your Proof of Innocence</a></>}
     </div>
   );
 }
