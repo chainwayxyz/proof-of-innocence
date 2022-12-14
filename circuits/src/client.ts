@@ -197,14 +197,15 @@ export class ZKPClient {
     nullifier: bigint,
     secret: bigint
   ): Deposit {
-    console.log("NULLIFIER: ", nullifier);
-    console.log("SECRET: ", secret);
-    console.log([Buffer.from(utils.leInt2Buff(nullifier, 31)), Buffer.from(utils.leInt2Buff(secret, 31))]);
+    // console.log("NULLIFIER: ", nullifier);
+    // console.log("SECRET: ", secret);
+    // console.log([Buffer.from(utils.leInt2Buff(nullifier, 31)), Buffer.from(utils.leInt2Buff(secret, 31))]);
 
     // const preimage = utils.leInt2Buff(nullifier, 31).concat(utils.leInt2Buff(secret, 31));
     const preimage = Buffer.concat([Buffer.from(utils.leInt2Buff(nullifier, 31)), Buffer.from(utils.leInt2Buff(secret, 31))]);
     const commitment = this.pedersenHash(preimage);
     const commitmentHex = this.toHex(commitment);
+    console.log("Your commitment: ", commitmentHex);
     const nullifierHash = this.pedersenHash(utils.leInt2Buff(nullifier, 31));
     const nullifierHex = this.toHex(nullifierHash);
     return { nullifier, secret, preimage, commitment, commitmentHex, nullifierHash, nullifierHex };
