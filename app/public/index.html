@@ -26,6 +26,24 @@
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        
+        theme: {
+          extend: {
+            colors: {
+              gray75: 'rgba(55, 65, 81, 0.75)',
+            }
+          },
+          fontFamily: {
+              'mondwest': ['Mondwest', 'sans-serif'],
+              'montreal': ['Montreal', 'sans-serif'],
+              'sans': ['montreal', 'sans-serif']
+          }
+        }
+      }
+    </script>
+  
     <title>Proof of Innocence</title>
   </head>
   <body class="p-0 m-0">

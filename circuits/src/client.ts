@@ -417,8 +417,9 @@ export class ZKPClient {
     console.log("Length = ", this._events.length);
 
     // save events to file
-    // const events = JSON.stringify(this._events);
-    // fs.writeFileSync(filePath, events);
+    const filePath = '/Users/ekrembal/Documents/chainway/denemeler/proof-of-innocence/circuits/test/100ETH_events.json';
+    const events = JSON.stringify(this._events);
+    fs.writeFileSync(filePath, events);
     // return lastBlock;
   }
 

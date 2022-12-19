@@ -2,18 +2,9 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { ethers } from "ethers";
 import useCircuit from "../hooks/useCircuit";
-
-// create a type for the proof object
-type Proof = {
-  proof: {
-    a: string[];
-    b: string[][];
-    c: string[];
-  };
-  publicInputs: string[];
-  blacklist: string[];
-};
-
+import Modal from "../components/Modal";
+import Loading from "../components/Loading";
+import ProofDetails from "../components/ProofDetails";
 
 function Verify() {  
   const { client } = useCircuit();
@@ -27,14 +18,25 @@ function Verify() {
   const [result, setResult] = useState<boolean>();
   const [error, setError] = useState<string>();
 
-  const [blacklistExpanded, setBlacklistExpanded] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [loadingMsg, setLoadingMsg] = useState<string>("");
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
+
+  
+
+  const shareOnTwitterButton = () => {
+    const url = `https://twitter.com/intent/tweet?text=I%20just%20proved%20that%20I%20am%20innocent%20of%20withdrawing%20a%20note%20with%20the%20following%20proof%20on%20Proof%20of%20Innocence%20https://proofofinnocence.netlify.app/verify/${id}`;
+    window.open(url, "_blank");
+  }
 
   const verifyProof = async () => {
     if (!client){
       setError("client not found");
       return;
     }
+    setIsLoading(true);
+    setLoadingMsg("Verifying proof...");
     const provider = new ethers.providers.JsonRpcProvider(RpcUrl);
     const contract = new ethers.Contract(
       "0x665796b55073B077f200B79eB4790196aA7bCd6a",
@@ -47,6 +49,7 @@ function Verify() {
       setError("Proof is invalid");
       return;
     }
+    setLoadingMsg("Verifying Blacklist Merkle root...");
     const root = await client.getMerkleRoot(blacklist);
     console.log(root);
     console.log(publicInputs);
@@ -54,22 +57,15 @@ function Verify() {
       setError("Root does not match");
       return;
     }
+    setIsLoading(false);
     setResult(true);
-  }
-
-  const shorten = (id: string | undefined) => {
-    if (!id) return "Loading";
-    return id.slice(0, 6) + "..." + id.slice(-4);
-  }
-
-  const toHex = (id: string | undefined) => {
-    if (!id) return "Loading";
-    // convert decimal string of id to hex
-    return "0x" + BigInt(id).toString(16);
+    setIsModalOpen(true);
   }
 
   useEffect(() => {
     const getFromIpfs = async () => {
+      setIsLoading(true);
+      setLoadingMsg("Fetching proof from IPFS...");
       const url = `https://gateway.pinata.cloud/ipfs/${id}`;
       const response = await fetch(url);
       const proof = await response.json();
@@ -79,28 +75,25 @@ function Verify() {
       setProof(proofData);
       setPublicInputs(publicInputs);
       setBlacklist(blacklist);
+      setIsLoading(false);
     }  
     getFromIpfs();
   }, [id]);
 
+  useEffect(() => {
+    if (client) setIsLoading(false);
+    else setLoadingMsg("Client is loading...");
+  }, [client])
+
   return (
-    <div className="App">
-      <h1 className="text-3xl font-bold">Proof details</h1>
-      <div><p className="text-xl underline inline-block">IPFS Hash: </p><p className="text-xl inline-block">{shorten(id)}</p></div>
-      <div><p className="text-xl underline inline-block">Nullifier Hash: </p><p className="text-xl inline-block">{shorten(toHex(publicInputs[0]))}</p></div>
-      <div><p className="text-xl underline inline-block">Merkle Root: </p><p className="text-xl inline-block">{shorten(toHex(publicInputs[1]))}</p></div>
-      <div><p className="text-xl underline inline-block">Blacklist Root: </p><p className="text-xl inline-block">{shorten(toHex(publicInputs[2]))}</p></div>
-      <div><p className="text-xl underline inline-block">Blacklisted Commitments: </p><p className="text-xl inline-block">{blacklist.length} <button onClick={() => {setBlacklistExpanded(!blacklistExpanded)}}>{blacklistExpanded ? "Click to close":"Click to open"}</button></p></div>
-      {blacklistExpanded && <div className="text-xl">
-        {blacklist.map((commitment, index) => {
-          return <p key={index}>{shorten(toHex(commitment))}</p>
-        })}
-      </div>}
-      <br/>
-      <button className="inline-block font-bold px-4 py-2 rounded bg-neutral-900 text-white" onClick={verifyProof}>Verify Proof</button>
-      <br/>
-      {result && <p className="text-5xl underline text-green my-6">Proof is valid</p>}
+    <>
+    {isLoading && (<Loading progress={0} loadingMsg={loadingMsg} />)}
+    <div className="flex flex-col gap-y-4">
+      <ProofDetails id={id as string} proof={proof as {a: string[];b: string[][];c: string[]}} publicInputs={publicInputs} blacklist={blacklist} />
+      <button className="inline-block font-bold px-4 py-2 border rounded" onClick={verifyProof}>Verify Proof</button>
+      {result && isModalOpen && <Modal setIsModalOpen={setIsModalOpen} modalContent={"Proof is valid."} modalButtonsFunctions={[[shareOnTwitterButton, "Share on Twitter"]]}/>}
     </div>
+    </>
   );
 }
 
