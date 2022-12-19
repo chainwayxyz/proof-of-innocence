@@ -100,7 +100,7 @@ function TornadoNote() {
 
   useEffect(() => {
     if (client) setIsLoading(false);
-    else setLoadingMsg("Client is loading...");
+    else setLoadingMsg("This may take a while.");
   }, [client])
 
   useEffect(() => {

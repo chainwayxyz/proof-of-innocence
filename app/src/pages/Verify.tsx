@@ -19,14 +19,13 @@ function Verify() {
   const [error, setError] = useState<string>();
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isClientLoading, setIsClientLoading] = useState<boolean>(true);
   const [loadingMsg, setLoadingMsg] = useState<string>("");
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
 
-  
-
   const shareOnTwitterButton = () => {
-    const url = `https://twitter.com/intent/tweet?text=I%20just%20proved%20that%20I%20am%20innocent%20of%20withdrawing%20a%20note%20with%20the%20following%20proof%20on%20Proof%20of%20Innocence%20https://proofofinnocence.netlify.app/verify/${id}`;
+    const url = `https://twitter.com/intent/tweet?text=I%20just%20proved%20that%20I%20am%20innocent%20of%20withdrawing%20a%20note%20with%20the%20following%20proof%20on%20Proof%20of%20Innocence%20https://poi.chainway.xyz/verify/${id}`;
     window.open(url, "_blank");
   }
 
@@ -61,36 +60,46 @@ function Verify() {
     setResult(true);
     setIsModalOpen(true);
   }
-
-  useEffect(() => {
-    const getFromIpfs = async () => {
-      setIsLoading(true);
-      setLoadingMsg("Fetching proof from IPFS...");
-      const url = `https://gateway.pinata.cloud/ipfs/${id}`;
-      const response = await fetch(url);
-      const proof = await response.json();
-      const proofData: {a:string[],b:string[][],c:string[]} = proof?.proof || {a:[],b:[],c:[]};
-      const publicInputs: string[] = proof?.publicInputs || [];
-      const blacklist: string[] = proof?.blacklist || [];
-      setProof(proofData);
-      setPublicInputs(publicInputs);
-      setBlacklist(blacklist);
+  const getFromIpfs = async () => {
+    try{
+    setIsLoading(true);
+    setLoadingMsg("Fetching proof from IPFS...");
+    const url = `https://gateway.pinata.cloud/ipfs/${id}`;
+    const response = await fetch(url);
+    const proof = await response.json();
+    const proofData: {a:string[],b:string[][],c:string[]} = proof?.proof || {a:[],b:[],c:[]};
+    const publicInputs: string[] = proof?.publicInputs || [];
+    const blacklist: string[] = proof?.blacklist || [];
+    setProof(proofData);
+    setPublicInputs(publicInputs);
+    setBlacklist(blacklist);
+    setIsLoading(false);
+    }catch(e:any){
+      setError(e.message);
       setIsLoading(false);
-    }  
-    getFromIpfs();
-  }, [id]);
+    }
+  }
+
+  // useEffect(() => {
+  //   if(!isClientLoading)
+  //     getFromIpfs();
+  // }, [id]);
 
   useEffect(() => {
-    if (client) setIsLoading(false);
-    else setLoadingMsg("Client is loading...");
+    if (client){
+      setIsClientLoading(false);
+      getFromIpfs();
+    }
+    else setLoadingMsg("This may take a while.");
   }, [client])
 
   return (
     <>
-    {isLoading && (<Loading progress={0} loadingMsg={loadingMsg} />)}
+    {(isLoading || isClientLoading) && (<Loading progress={0} loadingMsg={loadingMsg} />)}
     <div className="flex flex-col gap-y-4">
-      <ProofDetails id={id as string} proof={proof as {a: string[];b: string[][];c: string[]}} publicInputs={publicInputs} blacklist={blacklist} />
-      <button className="inline-block font-bold px-4 py-2 border rounded" onClick={verifyProof}>Verify Proof</button>
+      {error && <div className="text-red-500 text-xl">{error}</div>}
+      {!error && <><ProofDetails id={id as string} proof={proof as {a: string[];b: string[][];c: string[]}} publicInputs={publicInputs} blacklist={blacklist} /><button className="inline-block font-bold px-4 py-2 border rounded" onClick={verifyProof}>Verify Proof</button></>}
+      
       {result && isModalOpen && <Modal setIsModalOpen={setIsModalOpen} modalContent={"Proof is valid."} modalButtonsFunctions={[[shareOnTwitterButton, "Share on Twitter"]]}/>}
     </div>
     </>
