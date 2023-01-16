@@ -25,7 +25,7 @@ function Verify() {
 
 
   const shareOnTwitterButton = () => {
-    const url = `https://twitter.com/intent/tweet?text=I%20just%20proved%20that%20I%20am%20innocent%20of%20withdrawing%20a%20note%20with%20the%20following%20proof%20on%20Proof%20of%20Innocence%20https://poi.chainway.xyz/verify/${id}`;
+    const url = `https://twitter.com/intent/tweet?text=I%20just%20proved%20that%20I%20am%20innocent%20of%20withdrawing%20a%20note%20from%20Tornado%20Cash%20with%20the%20following%20proof%20on%20Proof%20of%20Innocence%20https://poi.chainway.xyz/verify/${id}`;
     window.open(url, "_blank");
   }
 

@@ -135,6 +135,7 @@ function Prove() {
           </button>
         </div>
         <textarea
+        rows={5}
         id="blacklist-field"
         className={`border px-2 py-1 rounded-lg w-full focus:outline-none  ${blacklistError ? "border-red-700" : ""}`}
         placeholder="Enter blacklist commitments, one per line"
