@@ -108,6 +108,7 @@ function Prove() {
   return (
     <>
     {isLoading && (<Loading progress={progress} loadingMsg={loadingMsg} />)}
+    <p className="text-orange-700 p-4">This is a beta product. Don't use it with your mainnet Tornado Cash notes.</p>
     <div className="flex flex-col gap-y-4">
       <div className="flex flex-col">
         <div className="flex items-center justify-between">
