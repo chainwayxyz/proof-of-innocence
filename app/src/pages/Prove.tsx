@@ -114,7 +114,7 @@ function Prove() {
   return (
     <>
       {isLoading && <Loading progress={progress} loadingMsg={loadingMsg} />}
-      <p className="text-[#494f58] ps-2 pe-4 py-2 mb-4 bg-[#f8edca] text-start text-sm rounded-xl border-l-[14px] border-[#f0b90b]">
+      <p className="text-[#494f58] ps-2 pe-4 py-2 mb-4 bg-[#f8edca] text-start text-sm rounded-xl border-l-[12px] border-[#f0b90b]">
         This is a beta product. Don't use it with your mainnet Tornado Cash
         notes.
       </p>
