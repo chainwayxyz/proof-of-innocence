@@ -49,7 +49,8 @@ export class ZKPClient {
   private _events: Array<Event> = [];
   // private _rpc: string = "";
   private static MERKLE_TREE_HEIGHT = 20;
-  private static ZERO_VALUE = "21663839004416932945382355908790599225266501822907911457504978515578255421292";
+  private static ZERO_VALUE =
+    "21663839004416932945382355908790599225266501822907911457504978515578255421292";
   process: number = 0;
 
   get initialized() {
@@ -91,11 +92,10 @@ export class ZKPClient {
     setProgress: Function
   ): Promise<string> {
     const { currency, amount, netId, deposit } = this.parseNote(noteString);
-    const { tornadoAddress, tornadoInstance, deployedBlockNumber, subgraph } =
+    const { subgraph } =
       this.initContract(netId, currency, amount);
     // await client.quertFromRPC(tornadoInstance, deployedBlockNumber);
     await this.fetchGraphEvents(currency, amount, subgraph, setProgress);
-    const events = this.getEvents();
 
     const { root, pathElements, pathIndices } = await this.generateMerkleProof(
       deposit
@@ -111,6 +111,7 @@ export class ZKPClient {
   }
 
   getMerkleRoot(blacklistArray: string[], deposit: Deposit) {
+    const blacklistSet = new Set(blacklistArray);
     let leafIndex = -1;
     const leaves = this._events
       .sort((a, b) => a.leafIndex - b.leafIndex)
@@ -118,23 +119,15 @@ export class ZKPClient {
         if (event.commitment === deposit.commitmentHex) {
           leafIndex = event.leafIndex;
         }
+        if (!blacklistSet.has(event.commitment)) {
+          return ZKPClient.ZERO_VALUE;
+        }
         // convert event.commitment to BigInt
         return BigInt(event.commitment).toString(10);
       });
-    const allowlist = [];
-    for (let i = 0; i < leaves.length; i++) {
-      if (blacklistArray.includes(leaves[i])) {
-        allowlist.push(leaves[i]);
-      } else {
-        allowlist.push(
-          ZKPClient.ZERO_VALUE
-        );
-      }
-    }
-    const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, allowlist, {
+    const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, leaves, {
       hashFunction: (l, r) => this.simpleHash(l, r),
-      zeroElement:
-        ZKPClient.ZERO_VALUE,
+      zeroElement: ZKPClient.ZERO_VALUE,
     });
     return tree.root;
   }
@@ -182,6 +175,11 @@ export class ZKPClient {
     blacklist: string,
     deposit: Deposit
   ): Promise<string> {
+    // unstringify the proof input
+    const proofInput = JSON.parse(proofInputString);
+    // split blacklist by new line and remove empty lines
+    const blacklistArray = blacklist.split("\n").filter((item) => item !== "");
+    const blacklistSet = new Set(blacklistArray);
     let leafIndex = -1;
     const leaves = this._events
       .sort((a, b) => a.leafIndex - b.leafIndex)
@@ -189,21 +187,18 @@ export class ZKPClient {
         if (event.commitment === deposit.commitmentHex) {
           leafIndex = event.leafIndex;
         }
+        if (!blacklistSet.has(event.commitment)) {
+          return ZKPClient.ZERO_VALUE;
+        }
         // convert event.commitment to BigInt
         return BigInt(event.commitment).toString(10);
       });
-    // unstringify the proof input
-    const proofInput = JSON.parse(proofInputString);
-    const idx = leaves.indexOf(proofInput.commitment);
-    // split blacklist by new line and remove empty lines
-    const blacklistArray = blacklist.split("\n").filter((item) => item !== "");
     const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, leaves, {
       hashFunction: (l, r) => this.simpleHash(l, r),
-      zeroElement:
-        "21663839004416932945382355908790599225266501822907911457504978515578255421292",
+      zeroElement: ZKPClient.ZERO_VALUE,
     });
-    const { pathElements, pathIndices, pathPositions, pathRoot } =
-      tree.path(idx);
+    const idx = leaves.indexOf(proofInput.commitment);
+    const { pathElements, pathIndices, pathRoot } = tree.path(idx);
     proofInput.allowlistRoot = pathRoot;
     proofInput.allowlistPathElements = pathElements;
     proofInput.allowlistPathIndices = pathIndices;
@@ -481,8 +476,7 @@ export class ZKPClient {
     console.log("leafIndex: ", leafIndex);
     const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, leaves, {
       hashFunction: (l, r) => this.simpleHash(l, r),
-      zeroElement:
-        "21663839004416932945382355908790599225266501822907911457504978515578255421292",
+      zeroElement: ZKPClient.ZERO_VALUE,
     });
     const root = tree.root;
     const { pathElements, pathIndices } = tree.path(leafIndex);
@@ -494,7 +488,6 @@ export class ZKPClient {
     const blacklistArray = blacklist.split("\n").filter((item) => item !== "");
     // convert blacklist array to set
     const blacklistSet = new Set(blacklistArray);
-
     let leafIndex = -1;
     const leaves = this._events
       .sort((a, b) => a.leafIndex - b.leafIndex)
@@ -502,32 +495,29 @@ export class ZKPClient {
         if (event.commitment === deposit.commitmentHex) {
           leafIndex = event.leafIndex;
         }
-        if(blacklistSet.has(event.commitment)) {
-          return "21663839004416932945382355908790599225266501822907911457504978515578255421292";
+        if (!blacklistSet.has(event.commitment)) {
+          return ZKPClient.ZERO_VALUE;
         }
         // convert event.commitment to BigInt
         return BigInt(event.commitment).toString(10);
       });
     // split blacklist by new line and remove empty lines
-    const allowlist = [];
-    for (let i = 0; i < leaves.length; i++) {
-      if (blacklistArray.includes(leaves[i])) {
-        allowlist.push(leaves[i]);
-      } else {
-        allowlist.push(
-          "21663839004416932945382355908790599225266501822907911457504978515578255421292"
-        );
-      }
-      const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, allowlist, {
-        hashFunction: (l, r) => this.simpleHash(l, r),
-        zeroElement:
-          "21663839004416932945382355908790599225266501822907911457504978515578255421292",
-      });
-      const root = tree.root;
-      const { pathElements, pathIndices } = tree.path(leafIndex);
-      console.log("Second Merkle Tree path root: ", root);
-      return { root, pathElements, pathIndices };
-    }
+    // const allowlist = [];
+    // for (let i = 0; i < leaves.length; i++) {
+    //   if (blacklistArray.includes(leaves[i])) {
+    //     allowlist.push(leaves[i]);
+    //   } else {
+    //     allowlist.push(ZKPClient.ZERO_VALUE);
+    //   }
+    // }
+    const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, leaves, {
+      hashFunction: (l, r) => this.simpleHash(l, r),
+      zeroElement: ZKPClient.ZERO_VALUE,
+    });
+    const root = tree.root;
+    const { pathElements, pathIndices } = tree.path(leafIndex);
+    console.log("Second Merkle Tree path root: ", root);
+    return { root, pathElements, pathIndices };
   }
 
   generateInputFirstPart(
