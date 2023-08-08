@@ -6,7 +6,7 @@ import * as snarkjs from "snarkjs";
 // import config
 import { config, tornadoInstanceABI } from "./config";
 
-import axios, { AxiosRequestConfig, AxiosPromise, AxiosResponse } from 'axios';
+import axios, { AxiosRequestConfig, AxiosPromise, AxiosResponse } from "axios";
 import merkleTree, { Element } from "fixed-merkle-tree";
 import { ethers } from "ethers";
 
@@ -33,25 +33,24 @@ export interface Deposit {
 }
 
 export interface Event {
-  blockNumber: number,
-  transactionHash: string,
-  commitment: string,
-  leafIndex: number,
-  timestamp: string
+  blockNumber: number;
+  transactionHash: string;
+  commitment: string;
+  leafIndex: number;
+  timestamp: string;
 }
-
 
 export class ZKPClient {
   private _calculator: any;
   private _babyjub: any;
   private _zkey: any;
-  private _pedersen:any;
+  private _pedersen: any;
   private _mimcsponge: any;
   private _events: Array<Event> = [];
   // private _rpc: string = "";
   private static MERKLE_TREE_HEIGHT = 20;
+  private static ZERO_VALUE = "21663839004416932945382355908790599225266501822907911457504978515578255421292";
   process: number = 0;
-
 
   get initialized() {
     return (
@@ -87,48 +86,138 @@ export class ZKPClient {
     return this;
   }
 
-  async calculateProofFromNote(noteString: string, setProgress: Function): Promise<string> {
+  async calculateProofFromNote(
+    noteString: string,
+    setProgress: Function
+  ): Promise<string> {
     const { currency, amount, netId, deposit } = this.parseNote(noteString);
-    const {tornadoAddress, tornadoInstance, deployedBlockNumber, subgraph} = this.initContract(netId, currency, amount);
+    const { tornadoAddress, tornadoInstance, deployedBlockNumber, subgraph } =
+      this.initContract(netId, currency, amount);
     // await client.quertFromRPC(tornadoInstance, deployedBlockNumber);
     await this.fetchGraphEvents(currency, amount, subgraph, setProgress);
     const events = this.getEvents();
 
-    const {root, pathElements, pathIndices} = await this.generateMerkleProof(deposit);
+    const { root, pathElements, pathIndices } = await this.generateMerkleProof(
+      deposit
+    );
 
-    const inputJson = this.generateInputFirstPart(root as string, pathElements as string[], pathIndices, deposit);
+    const inputJson = this.generateInputFirstPart(
+      root as string,
+      pathElements as string[],
+      pathIndices,
+      deposit
+    );
     return inputJson;
   }
 
-  getMerkleRoot(blacklistArray: string[]) {
-    const tree = new MerkleTree((l,r)=>this.simpleHash(l,r), '21663839004416932945382355908790599225266501822907911457504978515578255421292', 254 + 1);
-    for (let i = 0; i < blacklistArray.length; i++) {
-        tree.setLeaf(BigInt(blacklistArray[i]), '1');
+  getMerkleRoot(blacklistArray: string[], deposit: Deposit) {
+    let leafIndex = -1;
+    const leaves = this._events
+      .sort((a, b) => a.leafIndex - b.leafIndex)
+      .map((event) => {
+        if (event.commitment === deposit.commitmentHex) {
+          leafIndex = event.leafIndex;
+        }
+        // convert event.commitment to BigInt
+        return BigInt(event.commitment).toString(10);
+      });
+    const allowlist = [];
+    for (let i = 0; i < leaves.length; i++) {
+      if (blacklistArray.includes(leaves[i])) {
+        allowlist.push(leaves[i]);
+      } else {
+        allowlist.push(
+          ZKPClient.ZERO_VALUE
+        );
+      }
     }
-    return tree.getRoot();
+    const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, allowlist, {
+      hashFunction: (l, r) => this.simpleHash(l, r),
+      zeroElement:
+        ZKPClient.ZERO_VALUE,
+    });
+    return tree.root;
   }
 
-  async addBlacklist(proofInputSring: string, blacklist: string): Promise<string> {
+  // async addBlacklist(proofInputSring: string, blacklist: string): Promise<string> {
+  //   // unstringify the proof input
+  //   const proofInput = JSON.parse(proofInputSring);
+  //   // split blacklist by new line and remove empty lines
+  //   const blacklistArray = blacklist.split('\n').filter((item) => item !== '');
+  //   const tree = new MerkleTree((l,r)=>this.simpleHash(l,r), '21663839004416932945382355908790599225266501822907911457504978515578255421292', 254 + 1);
+  //   for (let i = 0; i < blacklistArray.length; i++) {
+  //       tree.setLeaf(BigInt(blacklistArray[i]), '1');
+  //   }
+  //   const {pathElements, pathIndices, root} = tree.getWitness(BigInt(proofInput.commitment));
+  //   proofInput.blacklistRoot = root;
+  //   proofInput.blacklistPathElements = pathElements;
+  //   proofInput.blacklistPathIndices = pathIndices;
+  //   // delete commitment from proof input
+  //   delete proofInput.commitment;
+  //   console.log(proofInput);
+  //   console.log("Calculate WTNS Bin");
+  //   const wtns = await this.calculator.calculateWTNSBin(proofInput, 0);
+  //   console.log("Calculate Proof");
+  //   const { proof:proofOutput } = await snarkjs.groth16.prove(this._zkey, wtns);
+  //   console.log('Proof generated');
+  //   console.log(proofOutput);
+  //   const proofData = {
+  //     a: [proofOutput.pi_a[0], proofOutput.pi_a[1]] as [bigint, bigint],
+  //     b: [proofOutput.pi_b[0].reverse(), proofOutput.pi_b[1].reverse()] as [
+  //       [bigint, bigint],
+  //       [bigint, bigint]
+  //     ],
+  //     c: [proofOutput.pi_c[0], proofOutput.pi_c[1]] as [bigint, bigint],
+  //   } as Proof;
+
+  //   const returnData = {proof: proofData,
+  //     publicInputs:[proofInput.root, proofInput.nullifierHash, proofInput.blacklistRoot],
+  //     blacklist: blacklistArray
+  //   };
+  //   return JSON.stringify(returnData);
+  // }
+
+  async addAllowlist(
+    proofInputString: string,
+    blacklist: string,
+    deposit: Deposit
+  ): Promise<string> {
+    let leafIndex = -1;
+    const leaves = this._events
+      .sort((a, b) => a.leafIndex - b.leafIndex)
+      .map((event) => {
+        if (event.commitment === deposit.commitmentHex) {
+          leafIndex = event.leafIndex;
+        }
+        // convert event.commitment to BigInt
+        return BigInt(event.commitment).toString(10);
+      });
     // unstringify the proof input
-    const proofInput = JSON.parse(proofInputSring);
+    const proofInput = JSON.parse(proofInputString);
+    const idx = leaves.indexOf(proofInput.commitment);
     // split blacklist by new line and remove empty lines
-    const blacklistArray = blacklist.split('\n').filter((item) => item !== '');
-    const tree = new MerkleTree((l,r)=>this.simpleHash(l,r), '21663839004416932945382355908790599225266501822907911457504978515578255421292', 254 + 1);
-    for (let i = 0; i < blacklistArray.length; i++) {
-        tree.setLeaf(BigInt(blacklistArray[i]), '1');
-    }
-    const {pathElements, pathIndices, root} = tree.getWitness(BigInt(proofInput.commitment));
-    proofInput.blacklistRoot = root;
-    proofInput.blacklistPathElements = pathElements;
-    proofInput.blacklistPathIndices = pathIndices;
+    const blacklistArray = blacklist.split("\n").filter((item) => item !== "");
+    const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, leaves, {
+      hashFunction: (l, r) => this.simpleHash(l, r),
+      zeroElement:
+        "21663839004416932945382355908790599225266501822907911457504978515578255421292",
+    });
+    const { pathElements, pathIndices, pathPositions, pathRoot } =
+      tree.path(idx);
+    proofInput.allowlistRoot = pathRoot;
+    proofInput.allowlistPathElements = pathElements;
+    proofInput.allowlistPathIndices = pathIndices;
     // delete commitment from proof input
     delete proofInput.commitment;
     console.log(proofInput);
     console.log("Calculate WTNS Bin");
     const wtns = await this.calculator.calculateWTNSBin(proofInput, 0);
     console.log("Calculate Proof");
-    const { proof:proofOutput } = await snarkjs.groth16.prove(this._zkey, wtns);
-    console.log('Proof generated');
+    const { proof: proofOutput } = await snarkjs.groth16.prove(
+      this._zkey,
+      wtns
+    );
+    console.log("Proof generated");
     console.log(proofOutput);
     const proofData = {
       a: [proofOutput.pi_a[0], proofOutput.pi_a[1]] as [bigint, bigint],
@@ -139,25 +228,37 @@ export class ZKPClient {
       c: [proofOutput.pi_c[0], proofOutput.pi_c[1]] as [bigint, bigint],
     } as Proof;
 
-    const returnData = {proof: proofData,
-      publicInputs:[proofInput.root, proofInput.nullifierHash, proofInput.blacklistRoot],
-      blacklist: blacklistArray
+    const returnData = {
+      proof: proofData,
+      publicInputs: [
+        proofInput.root,
+        proofInput.nullifierHash,
+        proofInput.blacklistRoot,
+      ],
+      blacklist: blacklistArray,
     };
     return JSON.stringify(returnData);
   }
 
   /** Compute pedersen hash */
   pedersenHash(data: Buffer): bigint {
-    return this._babyjub.F.toObject(this._babyjub.unpackPoint(Buffer.from(this._pedersen.hash(data)))[0]);
+    return this._babyjub.F.toObject(
+      this._babyjub.unpackPoint(Buffer.from(this._pedersen.hash(data)))[0]
+    );
   }
 
   /** Compute mimc hash */
-  simpleHash(left:Element, right:Element): string {
-    return this._mimcsponge.F.toString(this._mimcsponge.multiHash([this._mimcsponge.F.e(BigInt(left)), this._mimcsponge.F.e(BigInt(right))])).toString();
+  simpleHash(left: Element, right: Element): string {
+    return this._mimcsponge.F.toString(
+      this._mimcsponge.multiHash([
+        this._mimcsponge.F.e(BigInt(left)),
+        this._mimcsponge.F.e(BigInt(right)),
+      ])
+    ).toString();
   }
 
-  toHex(num: bigint, length:number = 32): string {
-    return "0x" + num.toString(16).padStart(length * 2, '0');;
+  toHex(num: bigint, length: number = 32): string {
+    return "0x" + num.toString(16).padStart(length * 2, "0");
   }
   toHex32(num: bigint): string {
     let str = num.toString(16);
@@ -165,42 +266,48 @@ export class ZKPClient {
     return str;
   }
 
-
-  createDeposit(
-    nullifier: bigint,
-    secret: bigint
-  ): Deposit {
-    const preimage = Buffer.concat([Buffer.from(utils.leInt2Buff(nullifier, 31)), Buffer.from(utils.leInt2Buff(secret, 31))]);
+  createDeposit(nullifier: bigint, secret: bigint): Deposit {
+    const preimage = Buffer.concat([
+      Buffer.from(utils.leInt2Buff(nullifier, 31)),
+      Buffer.from(utils.leInt2Buff(secret, 31)),
+    ]);
     const commitment = this.pedersenHash(preimage);
     const commitmentHex = this.toHex(commitment);
     console.log("Your commitment: ", commitmentHex);
     const nullifierHash = this.pedersenHash(utils.leInt2Buff(nullifier, 31));
     const nullifierHex = this.toHex(nullifierHash);
-    return { nullifier, secret, preimage, commitment, commitmentHex, nullifierHash, nullifierHex };
+    return {
+      nullifier,
+      secret,
+      preimage,
+      commitment,
+      commitmentHex,
+      nullifierHash,
+      nullifierHex,
+    };
   }
 
-  parseNote(
-    noteString:string
-    ): {
-      currency: string,
-      amount: string,
-      netId: number,
-      deposit: Deposit
-    }{
-    const noteRegex = /tornado-(?<currency>\w+)-(?<amount>[\d.]+)-(?<netId>\d+)-0x(?<note>[0-9a-fA-F]{124})/g
+  parseNote(noteString: string): {
+    currency: string;
+    amount: string;
+    netId: number;
+    deposit: Deposit;
+  } {
+    const noteRegex =
+      /tornado-(?<currency>\w+)-(?<amount>[\d.]+)-(?<netId>\d+)-0x(?<note>[0-9a-fA-F]{124})/g;
     const match = noteRegex.exec(noteString);
-    if(!match){
+    if (!match) {
       throw new Error("Invalid note");
     }
-  
+
     const note = match.groups?.note;
-    if(!note){
+    if (!note) {
       throw new Error("Invalid note");
     }
     const netId = parseInt(match.groups?.netId || "0");
     const currency = match.groups?.currency || "";
     const amount = match.groups?.amount || "0";
-    const noteBytes = Buffer.from(note, 'hex');
+    const noteBytes = Buffer.from(note, "hex");
     const nullifier = utils.leBuff2int(noteBytes.slice(0, 31));
     const secret = utils.leBuff2int(noteBytes.slice(31, 62));
     const deposit = this.createDeposit(nullifier, secret);
@@ -209,36 +316,33 @@ export class ZKPClient {
       currency,
       amount,
       netId,
-      deposit
+      deposit,
     };
   }
 
-  initContract(
-    netId: number,
-    currency: string,
-    amount:string
-  ){
-    const net = config.deployments[`netId${netId}` as keyof typeof config.deployments];
+  initContract(netId: number, currency: string, amount: string) {
+    const net =
+      config.deployments[`netId${netId}` as keyof typeof config.deployments];
     const tornadoAddress = net.proxy;
     const subgraph = net.subgraph;
     const instance = net[currency as keyof typeof net];
-    const instanceAdresses = instance["instanceAddress" as keyof typeof instance];
-    const tornadoInstance = instanceAdresses[amount as keyof typeof instanceAdresses];
-    const deployedBlockNumbers = instance["deployedBlockNumber" as keyof typeof instance];
-    const deployedBlockNumber = deployedBlockNumbers[amount as keyof typeof deployedBlockNumbers];
+    const instanceAdresses =
+      instance["instanceAddress" as keyof typeof instance];
+    const tornadoInstance =
+      instanceAdresses[amount as keyof typeof instanceAdresses];
+    const deployedBlockNumbers =
+      instance["deployedBlockNumber" as keyof typeof instance];
+    const deployedBlockNumber =
+      deployedBlockNumbers[amount as keyof typeof deployedBlockNumbers];
 
-    return {tornadoAddress, tornadoInstance, deployedBlockNumber, subgraph};
+    return { tornadoAddress, tornadoInstance, deployedBlockNumber, subgraph };
   }
 
-  async queryLatestIndex(
-    currency: string,
-    amount: string,
-    subgraph: string
-  ){
+  async queryLatestIndex(currency: string, amount: string, subgraph: string) {
     const variables = {
       currency: currency.toString(),
-      amount: amount.toString()
-    }
+      amount: amount.toString(),
+    };
     const query = {
       query: `
       query($currency: String, $amount: String){
@@ -247,8 +351,8 @@ export class ZKPClient {
         }
       }
       `,
-      variables
-    }
+      variables,
+    };
     const querySubgraph = await axios.post(subgraph, query);
     const queryResult = querySubgraph.data.data.deposits;
     const result = queryResult[0].index;
@@ -264,8 +368,8 @@ export class ZKPClient {
     const variables = {
       currency: currency.toString(),
       amount: amount.toString(),
-      index: index
-    }
+      index: index,
+    };
     const query = {
       query: `
       query($currency: String, $amount: String, $index: String){
@@ -278,18 +382,32 @@ export class ZKPClient {
         }
       }
       `,
-      variables
-    }
+      variables,
+    };
     const querySubgraph = await axios.post(subgraph, query, {});
     const queryResult = querySubgraph.data.data?.deposits || [];
 
-    let mapResult = queryResult.map(({ blockNumber , transactionHash, commitment, index, timestamp }:{blockNumber:string,transactionHash:string,commitment:string,index:string,timestamp:string }) => ({
-      blockNumber: Number(blockNumber),
-      transactionHash: transactionHash,
-      commitment: commitment,
-      leafIndex: Number(index),
-      timestamp: timestamp
-    }));
+    let mapResult = queryResult.map(
+      ({
+        blockNumber,
+        transactionHash,
+        commitment,
+        index,
+        timestamp,
+      }: {
+        blockNumber: string;
+        transactionHash: string;
+        commitment: string;
+        index: string;
+        timestamp: string;
+      }) => ({
+        blockNumber: Number(blockNumber),
+        transactionHash: transactionHash,
+        commitment: commitment,
+        leafIndex: Number(index),
+        timestamp: timestamp,
+      })
+    );
     return mapResult;
   }
 
@@ -298,23 +416,37 @@ export class ZKPClient {
     amount: string,
     subgraph: string,
     setProgress: Function
-  ){
+  ) {
     this._events = [];
     const latestIndex = await this.queryLatestIndex(currency, amount, subgraph);
-    for (let index='0';;){
-      const result = await this.queryFromGraph(currency, amount, subgraph, index);
+    for (let index = "0"; ; ) {
+      const result = await this.queryFromGraph(
+        currency,
+        amount,
+        subgraph,
+        index
+      );
       if (Object.keys(result).length === 0) {
         setProgress(90);
         break;
-      } else{
-        const curIndex = result[result.length-1].leafIndex;
-        const progress = 90*(curIndex + 1) / latestIndex;
+      } else {
+        const curIndex = result[result.length - 1].leafIndex;
+        const progress = (90 * (curIndex + 1)) / latestIndex;
         setProgress(progress);
         index = String(curIndex + 1);
         const resultBlock = result[result.length - 1].blockNumber;
         const resultTimestamp = result[result.length - 1].timestamp;
         await this.saveResult(result);
-        console.log("Fetched", amount, currency.toUpperCase(), "deposit", "events to block:", Number(resultBlock), "timestamp:", Number(resultTimestamp));
+        console.log(
+          "Fetched",
+          amount,
+          currency.toUpperCase(),
+          "deposit",
+          "events to block:",
+          Number(resultBlock),
+          "timestamp:",
+          Number(resultTimestamp)
+        );
       }
     }
     console.log("Length = ", this._events.length);
@@ -326,41 +458,84 @@ export class ZKPClient {
     // return lastBlock;
   }
 
-  async saveResult(result: Array<Event>){
+  async saveResult(result: Array<Event>) {
     this._events = this._events.concat(result);
     this.process = this._events.length;
   }
 
-  getEvents(){
+  getEvents() {
     return this._events;
   }
 
-
-
-  async generateMerkleProof(
-    deposit:Deposit,
-  ) {
+  async generateMerkleProof(deposit: Deposit) {
     let leafIndex = -1;
-    const leaves = this._events.sort((a, b) => a.leafIndex - b.leafIndex).map((event) => {
-      if (event.commitment === deposit.commitmentHex) {
-        leafIndex = event.leafIndex;
-      }
-      // convert event.commitment to BigInt
-      return BigInt(event.commitment).toString(10);
-    });
+    const leaves = this._events
+      .sort((a, b) => a.leafIndex - b.leafIndex)
+      .map((event) => {
+        if (event.commitment === deposit.commitmentHex) {
+          leafIndex = event.leafIndex;
+        }
+        // convert event.commitment to BigInt
+        return BigInt(event.commitment).toString(10);
+      });
     console.log("leafIndex: ", leafIndex);
-    const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, leaves, {hashFunction:(l,r)=>this.simpleHash(l,r), zeroElement:'21663839004416932945382355908790599225266501822907911457504978515578255421292'});
+    const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, leaves, {
+      hashFunction: (l, r) => this.simpleHash(l, r),
+      zeroElement:
+        "21663839004416932945382355908790599225266501822907911457504978515578255421292",
+    });
     const root = tree.root;
     const { pathElements, pathIndices } = tree.path(leafIndex);
     console.log("Path root: ", root);
-    return {root, pathElements, pathIndices};
+    return { root, pathElements, pathIndices };
+  }
+
+  async generateMerkleProofwithAllowlist(deposit: Deposit, blacklist: string) {
+    const blacklistArray = blacklist.split("\n").filter((item) => item !== "");
+    // convert blacklist array to set
+    const blacklistSet = new Set(blacklistArray);
+
+    let leafIndex = -1;
+    const leaves = this._events
+      .sort((a, b) => a.leafIndex - b.leafIndex)
+      .map((event) => {
+        if (event.commitment === deposit.commitmentHex) {
+          leafIndex = event.leafIndex;
+        }
+        if(blacklistSet.has(event.commitment)) {
+          return "21663839004416932945382355908790599225266501822907911457504978515578255421292";
+        }
+        // convert event.commitment to BigInt
+        return BigInt(event.commitment).toString(10);
+      });
+    // split blacklist by new line and remove empty lines
+    const allowlist = [];
+    for (let i = 0; i < leaves.length; i++) {
+      if (blacklistArray.includes(leaves[i])) {
+        allowlist.push(leaves[i]);
+      } else {
+        allowlist.push(
+          "21663839004416932945382355908790599225266501822907911457504978515578255421292"
+        );
+      }
+      const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, allowlist, {
+        hashFunction: (l, r) => this.simpleHash(l, r),
+        zeroElement:
+          "21663839004416932945382355908790599225266501822907911457504978515578255421292",
+      });
+      const root = tree.root;
+      const { pathElements, pathIndices } = tree.path(leafIndex);
+      console.log("Second Merkle Tree path root: ", root);
+      return { root, pathElements, pathIndices };
+    }
   }
 
   generateInputFirstPart(
     root: string,
     pathElements: Array<string>,
     pathIndices: Array<number>,
-    deposit: Deposit): string {
+    deposit: Deposit
+  ): string {
     const input = {
       commitment: deposit.commitment.toString(),
       root: root,
@@ -368,7 +543,7 @@ export class ZKPClient {
       nullifier: deposit.nullifier.toString(),
       secret: deposit.secret.toString(),
       pathElements: pathElements,
-      pathIndices: pathIndices
+      pathIndices: pathIndices,
     };
     return JSON.stringify(input);
   }
@@ -378,36 +553,40 @@ export class ZKPClient {
     root: string,
     pathElements: Array<string>,
     pathIndices: Array<number>,
-    deposit: Deposit): Promise<{proof: string, args: string[]}> {
-      const input = {
-        root: root,
-        nullifierHash: deposit.nullifierHash,
-        nullifier: deposit.nullifier,
-        secret: deposit.secret,
-        pathElements: pathElements,
-        pathIndices: pathIndices
-      }
-      console.log("input\n");
-      console.log(input);
-      console.log('Generating SNARK proof');
-      const wtns = await this.calculator.calculateWTNSBin(input, 0);
-      const { proof:proofOutput } = await snarkjs.groth16.prove(this._zkey, wtns);
-      console.log('Proof generated');
-      console.log(proofOutput);
-      const proofData = {
-        a: [proofOutput.pi_a[0], proofOutput.pi_a[1]] as [bigint, bigint],
-        b: [proofOutput.pi_b[0].reverse(), proofOutput.pi_b[1].reverse()] as [
-          [bigint, bigint],
-          [bigint, bigint]
-        ],
-        c: [proofOutput.pi_c[0], proofOutput.pi_c[1]] as [bigint, bigint],
-      } as Proof;
-      const { proof } = this.toSolidityInput(proofData);
-      const args = [
-        this.toHex(BigInt(input.root)),
-        this.toHex(input.nullifierHash),
-      ];
-      return { proof, args};
+    deposit: Deposit
+  ): Promise<{ proof: string; args: string[] }> {
+    const input = {
+      root: root,
+      nullifierHash: deposit.nullifierHash,
+      nullifier: deposit.nullifier,
+      secret: deposit.secret,
+      pathElements: pathElements,
+      pathIndices: pathIndices,
+    };
+    console.log("input\n");
+    console.log(input);
+    console.log("Generating SNARK proof");
+    const wtns = await this.calculator.calculateWTNSBin(input, 0);
+    const { proof: proofOutput } = await snarkjs.groth16.prove(
+      this._zkey,
+      wtns
+    );
+    console.log("Proof generated");
+    console.log(proofOutput);
+    const proofData = {
+      a: [proofOutput.pi_a[0], proofOutput.pi_a[1]] as [bigint, bigint],
+      b: [proofOutput.pi_b[0].reverse(), proofOutput.pi_b[1].reverse()] as [
+        [bigint, bigint],
+        [bigint, bigint]
+      ],
+      c: [proofOutput.pi_c[0], proofOutput.pi_c[1]] as [bigint, bigint],
+    } as Proof;
+    const { proof } = this.toSolidityInput(proofData);
+    const args = [
+      this.toHex(BigInt(input.root)),
+      this.toHex(input.nullifierHash),
+    ];
+    return { proof, args };
   }
 
   toSolidityInput(proof: Proof) {
@@ -422,7 +601,7 @@ export class ZKPClient {
       proof.c[1],
     ]);
     const result = {
-      proof: "0x" + flatProof.map(x => this.toHex32(x)).join("")
+      proof: "0x" + flatProof.map((x) => this.toHex32(x)).join(""),
     };
     return result;
   }

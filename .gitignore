@@ -1,3 +1,11 @@
+
+
+circuits/circuits/*
+!circuits/circuits/*.circom
+
+**.ptau
+
+
 # Logs
 logs
 *.log

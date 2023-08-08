@@ -107,16 +107,16 @@ template DummyCommitmentHasher() {
 template Withdraw(levels) {
     signal input root;
     signal input nullifierHash;
-    signal input blacklistRoot;
+    signal input allowlistRoot;
 
     // private inputs
     signal input nullifier;
     signal input secret;
     signal input pathElements[levels];
     signal input pathIndices[levels];
-
-    signal input blacklistPathElements[254];
-    signal input blacklistPathIndices[254];
+    //no need for allowlistIndices since we are using the same Merkle tree with only difference being the use of 0/1s instead of commitments
+    //which are marked as 0/1s in the tree (0: innocent, 1: hacker)
+    signal input allowlistPathElements[levels];
 
     component hasher = CommitmentHasher();
     hasher.nullifier <== nullifier;
@@ -131,19 +131,16 @@ template Withdraw(levels) {
         tree.pathIndices[i] <== pathIndices[i];
     }
 
-    component blacklistTree = MerkleTreeChecker(254);
-    blacklistTree.leaf <== 21663839004416932945382355908790599225266501822907911457504978515578255421292;
-    blacklistTree.root <== blacklistRoot;
-    for (var i = 0; i < 254; i++) {
-        blacklistTree.pathElements[i] <== blacklistPathElements[i];
-        blacklistTree.pathIndices[i] <== blacklistPathIndices[i];
+    component allowlistTree = MerkleTreeChecker(levels);
+    allowlistTree.leaf <== 21663839004416932945382355908790599225266501822907911457504978515578255421292;
+    allowlistTree.root <== allowlistRoot;
+    for (var i = 0; i < levels; i++) {
+        allowlistTree.pathElements[i] <== allowlistPathElements[i];
+        allowlistTree.pathIndices[i] <== pathIndices[i];
     }
 
-    component commitmentBits = Bits2Num(254);
-    for(var i = 0; i < 254; i++) {
-        commitmentBits.in[i] <== blacklistPathIndices[i];
-    }
-    commitmentBits.out === hasher.commitment;
+
+    
 }
 
-component main {public [root, blacklistRoot, nullifierHash]} = Withdraw(20);
+component main {public [root, allowlistRoot, nullifierHash]} = Withdraw(20);
