@@ -10,7 +10,7 @@ import axios, { AxiosRequestConfig, AxiosPromise, AxiosResponse } from "axios";
 import merkleTree, { Element } from "fixed-merkle-tree";
 import { ethers } from "ethers";
 
-import { MerkleTree, Witness } from "./MerkleTree";
+// import { MerkleTree, Witness } from "./MerkleTree";
 
 // import path and fs
 import path from "path";
@@ -110,15 +110,11 @@ export class ZKPClient {
     return inputJson;
   }
 
-  getMerkleRoot(blacklistArray: string[], deposit: Deposit) {
+  getMerkleRoot(blacklistArray: string[]) {
     const blacklistSet = new Set(blacklistArray);
-    let leafIndex = -1;
     const leaves = this._events
       .sort((a, b) => a.leafIndex - b.leafIndex)
       .map((event) => {
-        if (event.commitment === deposit.commitmentHex) {
-          leafIndex = event.leafIndex;
-        }
         if (!blacklistSet.has(event.commitment)) {
           return ZKPClient.ZERO_VALUE;
         }
@@ -170,23 +166,29 @@ export class ZKPClient {
   //   return JSON.stringify(returnData);
   // }
 
-  async addAllowlist(
+  async addBlacklist(
     proofInputString: string,
     blacklist: string,
-    deposit: Deposit
   ): Promise<string> {
     // unstringify the proof input
     const proofInput = JSON.parse(proofInputString);
     // split blacklist by new line and remove empty lines
     const blacklistArray = blacklist.split("\n").filter((item) => item !== "");
+    console.log('this is our blacklist: ', blacklistArray);
+    console.log('####################');
+    console.log('this is our commitment: ', proofInput.commitment);
+    let temp = [];
+    for (var elem of this._events) {
+      temp.push(BigInt(elem.commitment).toString(10));
+    }
+    console.log('####################');
+    console.log('this is our temp: ', temp);
+    const idx = temp.indexOf(proofInput.commitment);
+    console.log('this is our index: ', idx);
     const blacklistSet = new Set(blacklistArray);
-    let leafIndex = -1;
     const leaves = this._events
       .sort((a, b) => a.leafIndex - b.leafIndex)
       .map((event) => {
-        if (event.commitment === deposit.commitmentHex) {
-          leafIndex = event.leafIndex;
-        }
         if (!blacklistSet.has(event.commitment)) {
           return ZKPClient.ZERO_VALUE;
         }
@@ -197,14 +199,13 @@ export class ZKPClient {
       hashFunction: (l, r) => this.simpleHash(l, r),
       zeroElement: ZKPClient.ZERO_VALUE,
     });
-    const idx = leaves.indexOf(proofInput.commitment);
-    const { pathElements, pathIndices, pathRoot } = tree.path(idx);
-    proofInput.allowlistRoot = pathRoot;
-    proofInput.allowlistPathElements = pathElements;
-    proofInput.allowlistPathIndices = pathIndices;
+    const { pathElements, pathRoot } = tree.path(idx);
+    proofInput.blacklistRoot = pathRoot;
+    proofInput.blacklistPathElements = pathElements;
+    // proofInput.blacklistPathIndices = pathIndices;
     // delete commitment from proof input
     delete proofInput.commitment;
-    console.log(proofInput);
+    console.log("PROOF INPUT = \n", JSON.stringify(proofInput));
     console.log("Calculate WTNS Bin");
     const wtns = await this.calculator.calculateWTNSBin(proofInput, 0);
     console.log("Calculate Proof");
