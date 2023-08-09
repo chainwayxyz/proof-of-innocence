@@ -105,17 +105,14 @@ template DummyCommitmentHasher() {
 
 // Verifies that commitment that corresponds to given secret and nullifier is included in the merkle tree of deposits
 template Withdraw(levels) {
-    signal input root;
     signal input nullifierHash;
-    signal input blacklistRoot;
+    signal input root;
 
     // private inputs
     signal input nullifier;
     signal input secret;
     signal input pathElements[levels];
     signal input pathIndices[levels];
-    //no need for blacklistIndices since we are using the same Merkle tree
-    signal input blacklistPathElements[levels];
 
     component hasher = CommitmentHasher();
     hasher.nullifier <== nullifier;
@@ -128,18 +125,7 @@ template Withdraw(levels) {
     for (var i = 0; i < levels; i++) {
         tree.pathElements[i] <== pathElements[i];
         tree.pathIndices[i] <== pathIndices[i];
-    }
-
-    component blacklistTree = MerkleTreeChecker(levels);
-    blacklistTree.leaf <== 21663839004416932945382355908790599225266501822907911457504978515578255421292;
-    blacklistTree.root <== blacklistRoot;
-    for (var i = 0; i < levels; i++) {
-        blacklistTree.pathElements[i] <== blacklistPathElements[i];
-        blacklistTree.pathIndices[i] <== pathIndices[i];
-    }
-
-
-    
+    }   
 }
 
-component main {public [root, blacklistRoot, nullifierHash]} = Withdraw(20);
+component main {public [root, nullifierHash]} = Withdraw(20);

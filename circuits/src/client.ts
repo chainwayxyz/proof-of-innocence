@@ -92,8 +92,7 @@ export class ZKPClient {
     setProgress: Function
   ): Promise<string> {
     const { currency, amount, netId, deposit } = this.parseNote(noteString);
-    const { subgraph } =
-      this.initContract(netId, currency, amount);
+    const { subgraph } = this.initContract(netId, currency, amount);
     // await client.quertFromRPC(tornadoInstance, deployedBlockNumber);
     await this.fetchGraphEvents(currency, amount, subgraph, setProgress);
 
@@ -128,27 +127,54 @@ export class ZKPClient {
     return tree.root;
   }
 
-  // async addBlacklist(proofInputSring: string, blacklist: string): Promise<string> {
+  // async addBlacklist(
+  //   proofInputString: string,
+  //   blacklist: string,
+  // ): Promise<string> {
   //   // unstringify the proof input
-  //   const proofInput = JSON.parse(proofInputSring);
+  //   const proofInput = JSON.parse(proofInputString);
   //   // split blacklist by new line and remove empty lines
-  //   const blacklistArray = blacklist.split('\n').filter((item) => item !== '');
-  //   const tree = new MerkleTree((l,r)=>this.simpleHash(l,r), '21663839004416932945382355908790599225266501822907911457504978515578255421292', 254 + 1);
-  //   for (let i = 0; i < blacklistArray.length; i++) {
-  //       tree.setLeaf(BigInt(blacklistArray[i]), '1');
+  //   const blacklistArray = blacklist.split("\n").filter((item) => item !== "");
+  //   console.log('this is our blacklist: ', blacklistArray);
+  //   console.log('####################');
+  //   console.log('this is our commitment: ', proofInput.commitment);
+  //   let temp = [];
+  //   for (var elem of this._events) {
+  //     temp.push(BigInt(elem.commitment).toString(10));
   //   }
-  //   const {pathElements, pathIndices, root} = tree.getWitness(BigInt(proofInput.commitment));
-  //   proofInput.blacklistRoot = root;
+  //   console.log('####################');
+  //   console.log('this is our temp: ', temp);
+  //   const idx = temp.indexOf(proofInput.commitment);
+  //   console.log('this is our index: ', idx);
+  //   const blacklistSet = new Set(blacklistArray);
+  //   const leaves = this._events
+  //     .sort((a, b) => a.leafIndex - b.leafIndex)
+  //     .map((event) => {
+  //       if (!blacklistSet.has(event.commitment)) {
+  //         return ZKPClient.ZERO_VALUE;
+  //       }
+  //       // convert event.commitment to BigInt
+  //       return BigInt(event.commitment).toString(10);
+  //     });
+  //   const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, leaves, {
+  //     hashFunction: (l, r) => this.simpleHash(l, r),
+  //     zeroElement: ZKPClient.ZERO_VALUE,
+  //   });
+  //   const { pathElements, pathRoot } = tree.path(idx);
+  //   proofInput.blacklistRoot = pathRoot;
   //   proofInput.blacklistPathElements = pathElements;
-  //   proofInput.blacklistPathIndices = pathIndices;
+  //   // proofInput.blacklistPathIndices = pathIndices;
   //   // delete commitment from proof input
   //   delete proofInput.commitment;
-  //   console.log(proofInput);
+  //   console.log("PROOF INPUT = \n", JSON.stringify(proofInput));
   //   console.log("Calculate WTNS Bin");
   //   const wtns = await this.calculator.calculateWTNSBin(proofInput, 0);
   //   console.log("Calculate Proof");
-  //   const { proof:proofOutput } = await snarkjs.groth16.prove(this._zkey, wtns);
-  //   console.log('Proof generated');
+  //   const { proof: proofOutput } = await snarkjs.groth16.prove(
+  //     this._zkey,
+  //     wtns
+  //   );
+  //   console.log("Proof generated");
   //   console.log(proofOutput);
   //   const proofData = {
   //     a: [proofOutput.pi_a[0], proofOutput.pi_a[1]] as [bigint, bigint],
@@ -159,50 +185,52 @@ export class ZKPClient {
   //     c: [proofOutput.pi_c[0], proofOutput.pi_c[1]] as [bigint, bigint],
   //   } as Proof;
 
-  //   const returnData = {proof: proofData,
-  //     publicInputs:[proofInput.root, proofInput.nullifierHash, proofInput.blacklistRoot],
-  //     blacklist: blacklistArray
+  //   const returnData = {
+  //     proof: proofData,
+  //     publicInputs: [
+  //       proofInput.root,
+  //       proofInput.nullifierHash,
+  //       proofInput.blacklistRoot,
+  //     ],
+  //     blacklist: blacklistArray,
   //   };
   //   return JSON.stringify(returnData);
   // }
 
   async addBlacklist(
     proofInputString: string,
-    blacklist: string,
+    blacklist: string
   ): Promise<string> {
     // unstringify the proof input
     const proofInput = JSON.parse(proofInputString);
     // split blacklist by new line and remove empty lines
     const blacklistArray = blacklist.split("\n").filter((item) => item !== "");
-    console.log('this is our blacklist: ', blacklistArray);
-    console.log('####################');
-    console.log('this is our commitment: ', proofInput.commitment);
-    let temp = [];
-    for (var elem of this._events) {
-      temp.push(BigInt(elem.commitment).toString(10));
-    }
-    console.log('####################');
-    console.log('this is our temp: ', temp);
-    const idx = temp.indexOf(proofInput.commitment);
-    console.log('this is our index: ', idx);
+    console.log("this is our blacklist: ", blacklistArray);
     const blacklistSet = new Set(blacklistArray);
-    const leaves = this._events
-      .sort((a, b) => a.leafIndex - b.leafIndex)
-      .map((event) => {
-        if (!blacklistSet.has(event.commitment)) {
-          return ZKPClient.ZERO_VALUE;
-        }
-        // convert event.commitment to BigInt
-        return BigInt(event.commitment).toString(10);
-      });
-    const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, leaves, {
+    console.log("####################");
+    console.log("this is our commitment: ", proofInput.commitment);
+    let allowlist = [];
+    for (var elem of this._events) {
+      if (!blacklistSet.has(elem.commitment)) {
+        allowlist.push(BigInt(elem.commitment).toString(10));
+      }
+    }
+    console.log("####################");
+    console.log("this is our allowlist: ", allowlist);
+    const idx = allowlist.indexOf(proofInput.commitment);
+
+    console.log("this is our index: ", idx);
+    if (idx == -1) {
+      throw new Error("Commitment is in blacklist");
+    }
+    const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, allowlist, {
       hashFunction: (l, r) => this.simpleHash(l, r),
       zeroElement: ZKPClient.ZERO_VALUE,
     });
-    const { pathElements, pathRoot } = tree.path(idx);
-    proofInput.blacklistRoot = pathRoot;
-    proofInput.blacklistPathElements = pathElements;
-    // proofInput.blacklistPathIndices = pathIndices;
+    const { pathRoot, pathElements, pathIndices } = tree.path(idx);
+    proofInput.root = pathRoot;
+    proofInput.pathElements = pathElements;
+    proofInput.pathIndices = pathIndices;
     // delete commitment from proof input
     delete proofInput.commitment;
     console.log("PROOF INPUT = \n", JSON.stringify(proofInput));
@@ -226,12 +254,9 @@ export class ZKPClient {
 
     const returnData = {
       proof: proofData,
-      publicInputs: [
-        proofInput.root,
-        proofInput.nullifierHash,
-        proofInput.blacklistRoot,
-      ],
-      blacklist: blacklistArray,
+      publicInputs: [proofInput.root, proofInput.nullifierHash],
+      pathElements: pathElements,
+      pathIndices: pathIndices,
     };
     return JSON.stringify(returnData);
   }
