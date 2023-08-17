@@ -15,6 +15,7 @@ import { ethers } from "ethers";
 // import path and fs
 import path from "path";
 import fs from "fs";
+import { hexDataLength } from "ethers/lib/utils";
 
 export interface Proof {
   pi_a: [bigint, bigint];
@@ -150,7 +151,8 @@ export class ZKPClient {
       }
     }
     const bitAllowlist = this.createBitAllowlistfromEvents(blacklistArray);
-    console.log("this is our bit allowlist: ", bitAllowlist);
+    const compressedAllowlist = this.compressBinary(bitAllowlist);
+    // console.log("this is our bit allowlist: ", bitAllowlist);
     // console.log("this is our allowlist: ", allowlist);
     const idx = allowlist.indexOf(proofInput.commitment);
 
@@ -198,10 +200,11 @@ export class ZKPClient {
     console.log("@@@@@@@@@@@@@@@@@@@@@@@");
     console.log("Proof data: ", proof);
     console.log("@@@@@@@@@@@@@@@@@@@@@@@");
+    console.log(this.createHexaAllowlistfromBitAllowlist(bitAllowlist));
     const returnData = {
       proof: proof,
       publicSignals: publicSignals,
-      bitAllowlist: bitAllowlist,
+      compressedAllowlist: compressedAllowlist,
     };
     return JSON.stringify(returnData);
   }
@@ -530,6 +533,62 @@ export class ZKPClient {
     return allowlist;
   }
 
+  createHexaAllowlistfromBitAllowlist(bitAllowlist: string) {
+    let hexaAllowlist = "0x";
+    for (let i = 0; i < bitAllowlist.length; i += 4) {
+      hexaAllowlist += parseInt(bitAllowlist.slice(i, i + 4), 2).toString(16);
+    }
+    return hexaAllowlist;
+  }
+
+  compressBinary(binary: string) {
+    let result = [];
+    let zeros = 0;
+    let ones = 0;
+    for (let i = 0; i < binary.length; i += 1) {
+      if (i == 0) {
+        if (binary[i] == "0") {
+          zeros++;
+        } else {
+          result.push(0);
+          ones++;
+        }
+      } else {
+        if (binary[i] == "0") {
+          zeros++;
+          if (ones > 0) {
+            result.push(ones);
+            ones = 0;
+          }
+        } else {
+          ones++
+          if (zeros > 0) {
+            result.push(zeros);
+            zeros = 0;
+          }
+        }
+      }
+    }
+    if (ones > 0) {
+      result.push(ones);
+    } else {
+      result.push(zeros);
+    }
+    return result;
+  }
+
+  expandCompressed(arr: number[]) {
+    let str = "";
+    for(var i = 0; i < arr.length; i++) {
+      if (i % 2 == 0) {
+        str += "0".repeat(arr[i]);
+      } else {
+        str += "1".repeat(arr[i]);
+      }
+    }
+    return str;
+  }
+
   async verifyProof(input: string): Promise<boolean> {
     console.log("Verifying SNARK proof");
     // console.log("Input: ", input);
@@ -538,16 +597,18 @@ export class ZKPClient {
     console.log("proofOut: ", temp.proof);
     console.log("publicSignals: ", temp.publicSignals);
     const root = temp.publicSignals[0];
-    // console.log("bitAllowlist: ", temp.bitAllowlist);
+    const allowlistInBits = this.expandCompressed(temp.compressedAllowlist);
+    console.log("compressedAllowlist: ", temp.compressedAllowlist);
+    // console.log("allowlistInBits: ", allowlistInBits);
     let allowlistFromBits = [];
-    // console.log("allowlist: ", temp.bitAllowlist);
-    for (let i = 0; i < temp.bitAllowlist.length; i++) {
-      if (temp.bitAllowlist[i] == "1") {
+    for (let i = 0; i < allowlistInBits.length; i++) {
+      if (allowlistInBits[i] == "1") {
         allowlistFromBits.push(BigInt(this._events[i].commitment).toString(10));
       }
     }
     const tree = new merkleTree(
       ZKPClient.MERKLE_TREE_HEIGHT,
+      // allowlistFromBits,
       allowlistFromBits,
       {
         hashFunction: (l, r) => this.simpleHash(l, r),
