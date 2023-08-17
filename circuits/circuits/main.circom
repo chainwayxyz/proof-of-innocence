@@ -105,8 +105,8 @@ template DummyCommitmentHasher() {
 
 // Verifies that commitment that corresponds to given secret and nullifier is included in the merkle tree of deposits
 template Withdraw(levels) {
-    signal input nullifierHash;
     signal input root;
+    signal input nullifierHash;
 
     // private inputs
     signal input nullifier;

@@ -17,9 +17,9 @@ import path from "path";
 import fs from "fs";
 
 export interface Proof {
-  a: [bigint, bigint];
-  b: [[bigint, bigint], [bigint, bigint]];
-  c: [bigint, bigint];
+  pi_a: [bigint, bigint];
+  pi_b: [[bigint, bigint], [bigint, bigint]];
+  pi_c: [bigint, bigint];
 }
 
 export interface Deposit {
@@ -51,6 +51,7 @@ export class ZKPClient {
   private static MERKLE_TREE_HEIGHT = 20;
   private static ZERO_VALUE =
     "21663839004416932945382355908790599225266501822907911457504978515578255421292";
+
   process: number = 0;
 
   get initialized() {
@@ -87,6 +88,7 @@ export class ZKPClient {
     return this;
   }
 
+  // this is used in main.test.ts, Prove.tsx and TornadoNote.tsx
   async calculateProofFromNote(
     noteString: string,
     setProgress: Function
@@ -109,6 +111,7 @@ export class ZKPClient {
     return inputJson;
   }
 
+  // this is used in Verify.tsx
   getMerkleRoot(blacklistArray: string[]) {
     const blacklistSet = new Set(blacklistArray);
     const leaves = this._events
@@ -127,76 +130,7 @@ export class ZKPClient {
     return tree.root;
   }
 
-  // async addBlacklist(
-  //   proofInputString: string,
-  //   blacklist: string,
-  // ): Promise<string> {
-  //   // unstringify the proof input
-  //   const proofInput = JSON.parse(proofInputString);
-  //   // split blacklist by new line and remove empty lines
-  //   const blacklistArray = blacklist.split("\n").filter((item) => item !== "");
-  //   console.log('this is our blacklist: ', blacklistArray);
-  //   console.log('####################');
-  //   console.log('this is our commitment: ', proofInput.commitment);
-  //   let temp = [];
-  //   for (var elem of this._events) {
-  //     temp.push(BigInt(elem.commitment).toString(10));
-  //   }
-  //   console.log('####################');
-  //   console.log('this is our temp: ', temp);
-  //   const idx = temp.indexOf(proofInput.commitment);
-  //   console.log('this is our index: ', idx);
-  //   const blacklistSet = new Set(blacklistArray);
-  //   const leaves = this._events
-  //     .sort((a, b) => a.leafIndex - b.leafIndex)
-  //     .map((event) => {
-  //       if (!blacklistSet.has(event.commitment)) {
-  //         return ZKPClient.ZERO_VALUE;
-  //       }
-  //       // convert event.commitment to BigInt
-  //       return BigInt(event.commitment).toString(10);
-  //     });
-  //   const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, leaves, {
-  //     hashFunction: (l, r) => this.simpleHash(l, r),
-  //     zeroElement: ZKPClient.ZERO_VALUE,
-  //   });
-  //   const { pathElements, pathRoot } = tree.path(idx);
-  //   proofInput.blacklistRoot = pathRoot;
-  //   proofInput.blacklistPathElements = pathElements;
-  //   // proofInput.blacklistPathIndices = pathIndices;
-  //   // delete commitment from proof input
-  //   delete proofInput.commitment;
-  //   console.log("PROOF INPUT = \n", JSON.stringify(proofInput));
-  //   console.log("Calculate WTNS Bin");
-  //   const wtns = await this.calculator.calculateWTNSBin(proofInput, 0);
-  //   console.log("Calculate Proof");
-  //   const { proof: proofOutput } = await snarkjs.groth16.prove(
-  //     this._zkey,
-  //     wtns
-  //   );
-  //   console.log("Proof generated");
-  //   console.log(proofOutput);
-  //   const proofData = {
-  //     a: [proofOutput.pi_a[0], proofOutput.pi_a[1]] as [bigint, bigint],
-  //     b: [proofOutput.pi_b[0].reverse(), proofOutput.pi_b[1].reverse()] as [
-  //       [bigint, bigint],
-  //       [bigint, bigint]
-  //     ],
-  //     c: [proofOutput.pi_c[0], proofOutput.pi_c[1]] as [bigint, bigint],
-  //   } as Proof;
-
-  //   const returnData = {
-  //     proof: proofData,
-  //     publicInputs: [
-  //       proofInput.root,
-  //       proofInput.nullifierHash,
-  //       proofInput.blacklistRoot,
-  //     ],
-  //     blacklist: blacklistArray,
-  //   };
-  //   return JSON.stringify(returnData);
-  // }
-
+  // this is used in main.test.ts, Prove.tsx and TornadoNote.tsx
   async addBlacklist(
     proofInputString: string,
     blacklist: string
@@ -209,14 +143,15 @@ export class ZKPClient {
     const blacklistSet = new Set(blacklistArray);
     console.log("####################");
     console.log("this is our commitment: ", proofInput.commitment);
-    let allowlist = [];
+    const allowlist = [];
     for (var elem of this._events) {
       if (!blacklistSet.has(elem.commitment)) {
         allowlist.push(BigInt(elem.commitment).toString(10));
       }
     }
-    console.log("####################");
-    console.log("this is our allowlist: ", allowlist);
+    const bitAllowlist = this.createBitAllowlistfromEvents(blacklistArray);
+    console.log("this is our bit allowlist: ", bitAllowlist);
+    // console.log("this is our allowlist: ", allowlist);
     const idx = allowlist.indexOf(proofInput.commitment);
 
     console.log("this is our index: ", idx);
@@ -227,7 +162,14 @@ export class ZKPClient {
       hashFunction: (l, r) => this.simpleHash(l, r),
       zeroElement: ZKPClient.ZERO_VALUE,
     });
-    const { pathRoot, pathElements, pathIndices } = tree.path(idx);
+    const { pathElements, pathIndices, pathRoot } = tree.path(idx);
+    console.log("%%%%%%%%%%%%%%%%%%%%%");
+    console.log("Path root: ", pathRoot);
+    console.log("%%%%%%%%%%%%%%%%%%%%%");
+    console.log("Path elements: ", pathElements);
+    console.log("%%%%%%%%%%%%%%%%%%%%%");
+    console.log("Path indices: ", pathIndices);
+    console.log("%%%%%%%%%%%%%%%%%%%%%");
     proofInput.root = pathRoot;
     proofInput.pathElements = pathElements;
     proofInput.pathIndices = pathIndices;
@@ -237,26 +179,29 @@ export class ZKPClient {
     console.log("Calculate WTNS Bin");
     const wtns = await this.calculator.calculateWTNSBin(proofInput, 0);
     console.log("Calculate Proof");
-    const { proof: proofOutput } = await snarkjs.groth16.prove(
+    const { proof, publicSignals } = await snarkjs.groth16.prove(
       this._zkey,
       wtns
     );
     console.log("Proof generated");
-    console.log(proofOutput);
-    const proofData = {
-      a: [proofOutput.pi_a[0], proofOutput.pi_a[1]] as [bigint, bigint],
-      b: [proofOutput.pi_b[0].reverse(), proofOutput.pi_b[1].reverse()] as [
-        [bigint, bigint],
-        [bigint, bigint]
-      ],
-      c: [proofOutput.pi_c[0], proofOutput.pi_c[1]] as [bigint, bigint],
-    } as Proof;
+    console.log("this is proof output: ", proof);
+    console.log("this is public signals: ", publicSignals);
 
+    // const proofData = {
+    //   pi_a: [proofOutput.pi_a[0], proofOutput.pi_a[1]] as [bigint, bigint],
+    //   pi_b: [proofOutput.pi_b[0], proofOutput.pi_b[1]] as [
+    //     [bigint, bigint],
+    //     [bigint, bigint]
+    //   ],
+    //   pi_c: [proofOutput.pi_c[0], proofOutput.pi_c[1]] as [bigint, bigint],
+    // } as Proof;
+    console.log("@@@@@@@@@@@@@@@@@@@@@@@");
+    console.log("Proof data: ", proof);
+    console.log("@@@@@@@@@@@@@@@@@@@@@@@");
     const returnData = {
-      proof: proofData,
-      publicInputs: [proofInput.root, proofInput.nullifierHash],
-      pathElements: pathElements,
-      pathIndices: pathIndices,
+      proof: proof,
+      publicSignals: publicSignals,
+      bitAllowlist: bitAllowlist,
     };
     return JSON.stringify(returnData);
   }
@@ -281,6 +226,7 @@ export class ZKPClient {
   toHex(num: bigint, length: number = 32): string {
     return "0x" + num.toString(16).padStart(length * 2, "0");
   }
+
   toHex32(num: bigint): string {
     let str = num.toString(16);
     while (str.length < 64) str = "0" + str;
@@ -488,6 +434,7 @@ export class ZKPClient {
     return this._events;
   }
 
+  // this is used in main.test.ts
   async generateMerkleProof(deposit: Deposit) {
     let leafIndex = -1;
     const leaves = this._events
@@ -510,42 +457,7 @@ export class ZKPClient {
     return { root, pathElements, pathIndices };
   }
 
-  async generateMerkleProofwithAllowlist(deposit: Deposit, blacklist: string) {
-    const blacklistArray = blacklist.split("\n").filter((item) => item !== "");
-    // convert blacklist array to set
-    const blacklistSet = new Set(blacklistArray);
-    let leafIndex = -1;
-    const leaves = this._events
-      .sort((a, b) => a.leafIndex - b.leafIndex)
-      .map((event) => {
-        if (event.commitment === deposit.commitmentHex) {
-          leafIndex = event.leafIndex;
-        }
-        if (!blacklistSet.has(event.commitment)) {
-          return ZKPClient.ZERO_VALUE;
-        }
-        // convert event.commitment to BigInt
-        return BigInt(event.commitment).toString(10);
-      });
-    // split blacklist by new line and remove empty lines
-    // const allowlist = [];
-    // for (let i = 0; i < leaves.length; i++) {
-    //   if (blacklistArray.includes(leaves[i])) {
-    //     allowlist.push(leaves[i]);
-    //   } else {
-    //     allowlist.push(ZKPClient.ZERO_VALUE);
-    //   }
-    // }
-    const tree = new merkleTree(ZKPClient.MERKLE_TREE_HEIGHT, leaves, {
-      hashFunction: (l, r) => this.simpleHash(l, r),
-      zeroElement: ZKPClient.ZERO_VALUE,
-    });
-    const root = tree.root;
-    const { pathElements, pathIndices } = tree.path(leafIndex);
-    console.log("Second Merkle Tree path root: ", root);
-    return { root, pathElements, pathIndices };
-  }
-
+  // this is used only here
   generateInputFirstPart(
     root: string,
     pathElements: Array<string>,
@@ -590,12 +502,12 @@ export class ZKPClient {
     console.log("Proof generated");
     console.log(proofOutput);
     const proofData = {
-      a: [proofOutput.pi_a[0], proofOutput.pi_a[1]] as [bigint, bigint],
-      b: [proofOutput.pi_b[0].reverse(), proofOutput.pi_b[1].reverse()] as [
+      pi_a: [proofOutput.pi_a[0], proofOutput.pi_a[1]] as [bigint, bigint],
+      pi_b: [proofOutput.pi_b[0].reverse(), proofOutput.pi_b[1].reverse()] as [
         [bigint, bigint],
         [bigint, bigint]
       ],
-      c: [proofOutput.pi_c[0], proofOutput.pi_c[1]] as [bigint, bigint],
+      pi_c: [proofOutput.pi_c[0], proofOutput.pi_c[1]] as [bigint, bigint],
     } as Proof;
     const { proof } = this.toSolidityInput(proofData);
     const args = [
@@ -605,16 +517,75 @@ export class ZKPClient {
     return { proof, args };
   }
 
+  createBitAllowlistfromEvents(blacklist: string[]) {
+    const blacklistSet = new Set(blacklist);
+    let allowlist: string = "";
+    for (let i = 0; i < this._events.length; i++) {
+      if (!blacklistSet.has(this._events[i].commitment)) {
+        allowlist += "1";
+      } else {
+        allowlist += "0";
+      }
+    }
+    return allowlist;
+  }
+
+  async verifyProof(input: string): Promise<boolean> {
+    console.log("Verifying SNARK proof");
+    // console.log("Input: ", input);
+    const temp = JSON.parse(input);
+    console.log("temp: ", temp);
+    console.log("proofOut: ", temp.proof);
+    console.log("publicSignals: ", temp.publicSignals);
+    const root = temp.publicSignals[0];
+    // console.log("bitAllowlist: ", temp.bitAllowlist);
+    let allowlistFromBits = [];
+    // console.log("allowlist: ", temp.bitAllowlist);
+    for (let i = 0; i < temp.bitAllowlist.length; i++) {
+      if (temp.bitAllowlist[i] == "1") {
+        allowlistFromBits.push(BigInt(this._events[i].commitment).toString(10));
+      }
+    }
+    const tree = new merkleTree(
+      ZKPClient.MERKLE_TREE_HEIGHT,
+      allowlistFromBits,
+      {
+        hashFunction: (l, r) => this.simpleHash(l, r),
+        zeroElement: ZKPClient.ZERO_VALUE,
+      }
+    );
+    // read vk from circuits/zk/zkeys/verificationkey.json
+    const vk = JSON.parse(
+      fs.readFileSync(
+        path.join(__dirname, "../../zk/zkeys/verificationkey.json"),
+        "utf8"
+      )
+    );
+    console.log("VK: ", vk);
+    console.log("Proof: ", temp.proof);
+    const bool = await snarkjs.groth16.verify(
+      vk,
+      temp.publicSignals,
+      temp.proof
+    );
+    //check root == tree.root() and groth verify
+    console.log(root);
+    console.log(tree.root);
+    console.log(root == tree.root);
+    console.log(bool);
+    return root == tree.root && bool;
+  }
+
   toSolidityInput(proof: Proof) {
     const flatProof: bigint[] = utils.unstringifyBigInts([
-      proof.a[0],
-      proof.a[1],
-      proof.b[0][1],
-      proof.b[0][0],
-      proof.b[1][1],
-      proof.b[1][0],
-      proof.c[0],
-      proof.c[1],
+      proof.pi_a[0],
+      proof.pi_a[1],
+      proof.pi_b[0][1],
+      proof.pi_b[0][0],
+      proof.pi_b[1][1],
+      proof.pi_b[1][0],
+      proof.pi_c[0],
+      proof.pi_c[1],
     ]);
     const result = {
       proof: "0x" + flatProof.map((x) => this.toHex32(x)).join(""),
