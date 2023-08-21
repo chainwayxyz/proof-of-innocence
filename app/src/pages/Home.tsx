@@ -29,6 +29,13 @@ const Home = () => {
       >
         Open Demo
       </a>
+      <a
+        className="inline-block font-normal border rounded-full shadow-md mb-8 mt-6 ms-4 px-4 py-2 hover:bg-[#3F7474] hover:text-white hover:shadow-[#3F7474] hover:border-[#3F7474] ease-in-out duration-300"
+        href="https://proofofinnocence.com/"
+        target="_blank"
+      >
+        Go to Website
+      </a>
     </div>
   );
 };
