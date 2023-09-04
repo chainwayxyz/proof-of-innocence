@@ -8,7 +8,7 @@ You can read more about it in [this Medium article](https://medium.com/@chainway
 
 You can use it from https://poi.chainway.xyz/
 
-## Building from scracth
+## Building from scratch
 
 - Install [Node.js](https://nodejs.org) version 16
   - If you are using [nvm](https://github.com/creationix/nvm#installation) (recommended) running `nvm use` will automatically choose the right node version for you.
